@@ -1,0 +1,246 @@
+.chatContainer {
+	position: absolute;
+
+	left: 50%;
+	top: 50%;
+
+	transform: translate(-50%, -50%);
+
+	width: 95vw;
+	height: 95vh;
+
+	margin: 0px;
+	padding: 0px;
+
+	overflow: hidden;
+}
+
+.promptBlock {
+	display: none;
+	position: absolute;
+
+	left: 50%;
+	top: 50%;
+
+	transform: translate(-50%, -50%);
+
+	border: 1px solid gray;
+	border-radius: 5px;
+}
+
+.chatBlock {
+	position: absolute;
+
+	left: 0%;
+	top: 0%;
+
+	width: 100%;
+	height: 100%;
+
+	overflow: hidden;
+}
+
+.usersList {
+	width: 100%;
+	height: 30px;
+
+	background: none;
+	text-align: center;
+
+	font-family: Verdana;
+	font-size: 14px;
+
+	border-bottom: 1px solid gray;
+}
+
+.roomMng {
+	width: 100%;
+	height: 70px;
+
+	text-align: center;
+
+	padding: 5px;
+
+	border-bottom: 1px solid gray;
+}
+
+.roomMng input {
+	margin-bottom: 5px;
+}
+
+.peerAdd, .mpotr  {
+	line-height: 3px;
+	height: 30px;
+}
+
+.idBlock {
+	position: absolute;
+
+	left: 0%;
+	top: 0%;
+	width: 100%;
+	height: 50px;
+
+	padding-top: 10px;
+
+	font-size: 14px;
+
+	text-align: center;
+	
+    user-select: text;
+}
+
+.connActions {
+	position: absolute;
+
+	left: 0%;
+	top: 50px;
+
+	width: 100%;
+	height: 100px;
+	
+	/*line-height: 100px;*/
+
+	text-align: center;
+
+	border-top: 1px solid gray;
+	border-bottom: 1px solid gray;
+}
+
+.connActions input {
+	margin-top: 5px;
+}
+
+.chatNotification {
+	transition: 0.2s;
+
+	position: absolute;
+	left: 50%;
+	top: 0%;
+
+	transform: translate(-50%, -110%);
+
+	max-width: 300px;
+
+	padding: 10px;
+
+	background: white;
+
+	border: 1px solid lightgray;
+
+	border-bottom-left-radius: 10px;
+	border-bottom-right-radius: 10px;
+	
+	text-align: center;
+
+	user-select: text;
+}
+
+.roomsBlock, .chatMsgs {
+	transition: 0.2s;
+
+	position: absolute;
+	width: 50%;
+	height: 100%;
+}
+
+.chatRooms {
+	position: absolute;
+
+	width: 100%;
+}
+
+.chatRooms {
+	left: 0%;
+	top: 150px;
+
+	height: calc(100% - 150px);
+}
+
+.chatRooms div {
+	transition: 0.2s;
+	width: calc(100% - 40px);
+	padding: 20px;
+
+	background: rgba(0,0,0,0);
+
+
+	border-bottom: 1px solid lightgray;
+}
+
+.chatRooms div:hover {
+	background: rgba(0,0,0,0.1);
+}
+
+.chatMsgs {
+	left: 50%;
+	top: 0%;
+
+	height: 100%;
+
+	border-left: 1px solid gray;
+	border-top: 1px solid gray;
+}
+
+.chatMsgs .author, .chatMsgs .message {
+	width: calc(100% - 20px);
+	padding: 10px;
+}
+
+.chatMsgs .author {
+	font-size: 12px;
+	font-weight: 700;
+}
+
+.chatMsgs .message {
+	font-size: 16px;
+
+    box-shadow: 0 1px 5px #bbbbbb inset, 0 -1px 0 #bbbbbb inset;
+}
+
+.chatRoomName  {
+	width: 100%;
+	height: 50px;
+
+	text-align: center;
+	font-size: 18px;
+
+	border-radius: 0%;
+	border: none;
+	border-bottom: 1px solid gray;
+}
+
+.chatMsgList {
+	width: 100%;
+	height: calc(100% - 240px);
+
+	border-bottom: 1px solid gray;
+
+    user-select: text;
+	overflow-y: auto;
+	-webkit-overflow-scrolling: touch;
+}
+
+.chatMngBlock {
+	width: 100%;
+	height: 70px;
+}
+
+.chatMngBlock textarea {
+	width: calc(100% - 120px);
+	margin: 10px;
+}
+
+.promptBlock textarea {
+	width: 90%;
+	height: 75px;
+	margin: 5px;
+}
+
+.chatMngBlock input {
+	transform: translateY(-110%);
+}
+
+.promptBlock input {
+	margin: 5px;
+}

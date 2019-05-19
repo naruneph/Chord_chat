@@ -1,0 +1,47 @@
+﻿body {
+    user-select: none;
+
+    font-family: Verdana;
+    font-size: 18px;
+}
+input, textarea {
+    transition: 0.2s;
+
+    padding: 7px 10px 7px 10px;
+    border-radius: 5px;
+    
+    font-family: Verdana;
+    font-size: 14px;
+}
+.shadow {
+    border: none;
+    box-shadow: 0 1px 5px #bbbbbb inset, 0 -1px 0 #bbbbbb inset;
+}
+.shadow:hover {
+    box-shadow: 0 0 0 2px #7eb4ea inset, 0 1px 2px rgba(0,0,0,.2) inset;
+}
+.shadow:focus {
+    outline: none;
+    box-shadow: 0 0 0 3px #7eb4ea inset, 0 1px 2px rgba(0,0,0,.2) inset, 0 0 4px rgba(35,146,243,.5);
+}
+.shadow::placeholder {
+    color: #999999;
+}
+.submit {
+    transition: 0.2s;
+
+    padding: 7px;
+    border-radius: 5px;
+    
+    font-family: Verdana;
+    font-size: 14px;
+
+    background: white;
+    border: none;
+    cursor: pointer;
+
+    box-shadow: 0 0 3px 1px #888888;
+}
+.submit:hover {
+    box-shadow: 0 0 0px 1px #888888;
+}

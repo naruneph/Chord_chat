@@ -1,0 +1,52 @@
+<html>
+<head>
+	<meta charset="utf-8">
+	<link rel="stylesheet" href="css/style.css">
+	<link rel="stylesheet" href="css/input.css">
+</head>
+<body>
+	<div class="chatContainer">
+		<div class="chatBlock">
+			<div class="roomsBlock">
+				<div class="chatRooms"></div>
+				<div class="idBlock"></div>
+				<div class="connActions">
+					<input class="submit" type="button" value="Подключиться">
+					<input class="submit" type="button" value="Добавить"><br>
+					<input class="submit" type="button" value="Новая беседа">
+					<input class="submit" type="button" value="Поиск id">
+				</div>
+			</div>
+			<div class="chatMsgs">
+				<input type="text" class="chatRoomName" value="Название беседы">
+				<div class="roomMng">
+					<input type="button" class="peerAdd submit" value="+">
+					<input type="button" class="quitRoom submit" value="Выйти"><br>
+					<input type="button" class="mpotr submit" value="Включить mpOTR">
+				</div>
+				<select class="usersList">
+					<option>Мои собеседники</option>
+				</select>
+				<div class="chatMsgList"></div>
+				<div class="chatMngBlock">
+					<textarea class="shadow" placeholder="Введите сообщение"></textarea>
+					<input class="submit" type="button" value="Отправить">
+				</div>
+			</div>
+		</div>
+		<table class="promptBlock">
+				<tr>
+					<td rowspan="2"><textarea class="shadow"></textarea></td>
+					<td><input class="submit" type="button" value="Принять"></td>
+				</tr>
+				<tr>
+					<td><input class="submit" type="button" value="Отмена"></td>
+				</tr>
+		</table>
+		<div class="chatNotification">12345</div>
+	</div>
+	<script src="chat-js\lib\jquery\jquery.min.js"></script>
+	<script src="chat-js\lib\cryptico\cryptico.js"></script>
+	<script src="index.build.js"></script>
+</body>
+</html>
