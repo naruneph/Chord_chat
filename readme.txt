@@ -1,6 +1,6 @@
-для сборки нужно выполнить команды:
+РґР»СЏ СЃР±РѕСЂРєРё РЅСѓР¶РЅРѕ РІС‹РїРѕР»РЅРёС‚СЊ РєРѕРјР°РЅРґС‹::
 npm install simple-peer
 npm install -g browserify
 
-в папке src проекта: 
+РІ РїР°РїРєРµ src РїСЂРѕРµРєС‚Р°: 
 browserify ./index.js -o ./index.build.js
