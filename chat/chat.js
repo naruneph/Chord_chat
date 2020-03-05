@@ -8,6 +8,9 @@ class Chat {
 		this.mail = mail;
 		this.names = {};
 
+		this.key = null;
+		this.key_pub = null;
+
 		this.getGlobalName = function(id) {
 			return id;
 		};

@@ -1,4 +1,4 @@
-для сборки нужно выполнить команды::
+для сборки:
 npm install simple-peer
 npm install -g browserify
 

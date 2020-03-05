@@ -1,48 +1,10 @@
-module.exports = function($_, time) {
+const Settings = require("./settings");
+const settings = new Settings();
+
+exports.settings = settings;
+
+exports.main = function($_, time, key_pair) {
     "use strict";
-
-    let len_sid_random = 13;
-    let key_length = "1024";
-    let auth_key_length = "1024";
-    let exp = "03";
-    let g = new BigInteger("31", 10);
-    let qmod = new BigInteger("1205156213460516294276038011098783037428475274251229971327058470979054415841306114445046929130670807336613570738952006098251824478525291315971365353402504611531367372670536703348123007294680829887020513584624726600189364717085162921889329599071881596888429934762044470097788673059921772650773521873603874984881875042154463169647779984441228936206496905064565147296499973963182632029642323604865192473605840717232357219244260470063729922144429668263448160459816959", 10);
-    let pmod = new BigInteger("2410312426921032588552076022197566074856950548502459942654116941958108831682612228890093858261341614673227141477904012196503648957050582631942730706805009223062734745341073406696246014589361659774041027169249453200378729434170325843778659198143763193776859869524088940195577346119843545301547043747207749969763750084308926339295559968882457872412993810129130294592999947926365264059284647209730384947211681434464714438488520940127459844288859336526896320919633919", 10);
-    let random = new SecureRandom();
-
-    /**
-     * Generates RSA key pair
-     * @param {string} length Key length
-     * @returns {Array} [PrivateKey, PublicKey]
-     */
-    function generatePair(length) {
-        let rsaPrivateKey = new RSAKey();
-        rsaPrivateKey.generate(length, exp);
-        let rsaPubKey = cryptico.publicKeyString(rsaPrivateKey);
-        return [rsaPrivateKey, rsaPubKey];
-    }
-
-    /**
-     * Generates big random number
-     * @returns {BigInteger}
-     */
-    function generateNumber() {
-        let randBytes = new Array(len_sid_random);
-        random.nextBytes(randBytes);
-        return new BigInteger(randBytes);
-    }
-
-    /**
-     * TODO
-     * @param {string} length
-     * @returns {Array}
-     */
-    function generateExpPair(length) {
-        let randBigNumber = generateNumber();
-        randBigNumber = randBigNumber.mod(qmod);
-        let b = g.modPow(randBigNumber, pmod);
-        return [randBigNumber, b];
-    }
 
     /**
      * Round class.
@@ -122,8 +84,8 @@ module.exports = function($_, time) {
             "update": {},
             "status": "OK"
         };
-        let my_k = new Array(len_sid_random);
-        random.nextBytes(my_k);
+        let my_k = new Array(settings.len_sid_random);
+        settings.random.nextBytes(my_k);
 
         my_k = my_k.map(function (el) {
             return String.fromCharCode(el);
@@ -131,11 +93,10 @@ module.exports = function($_, time) {
 
         let my_k_hashed = sha256.hex(my_k);
 
-        let long_pair = generateExpPair(key_length);
-        let longterm = long_pair[0];
-        let pub_longterm = long_pair[1];
+        let longterm = key_pair[0];
+        let pub_longterm = key_pair[1];
 
-        let eph_pair = generatePair(key_length);
+        let eph_pair = settings.generatePair();
         let eph = eph_pair[0];
         let pub_eph = eph_pair[1];
 
@@ -202,7 +163,7 @@ module.exports = function($_, time) {
         let sid = sha256.hex(sid_raw);
         result.update.sid = sid;
 
-        let auth_pair = generateExpPair(auth_key_length);
+        let auth_pair = settings.generateExpPair();
         let r_i = auth_pair[0];
         let exp_r_i = auth_pair[1];
         result.update.r_i = r_i;
@@ -279,8 +240,8 @@ module.exports = function($_, time) {
         }
 
         let bigIntLPK = new BigInteger(context.myLongPrivKey.toString(), 10);
-        let t_left_raw = left_pub_key.modPow(bigIntLPK, pmod);
-        let t_right_raw = right_pub_key.modPow(bigIntLPK, pmod);
+        let t_left_raw = left_pub_key.modPow(bigIntLPK, settings.pmod);
+        let t_right_raw = right_pub_key.modPow(bigIntLPK, settings.pmod);
         let t_left_hashed = sha256.hex(t_left_raw.toString());
         let t_right_hashed = sha256.hex(t_right_raw.toString());
         let bigT = xor(t_left_hashed, t_right_hashed);
@@ -374,9 +335,9 @@ module.exports = function($_, time) {
         let c_i_raw = context.sid + sconf;
         let c_i_hashed = sha256.hex(c_i_raw);
         let c_i_int = new BigInteger(c_i_hashed);
-        c_i_int = c_i_int.mod(qmod);
+        c_i_int = c_i_int.mod(settings.qmod);
         c_i_hashed = c_i_int.toString();
-        let d_i = context.r_i.subtract(context.myLongPrivKey.multiply(c_i_int).mod(qmod)).mod(qmod);
+        let d_i = context.r_i.subtract(context.myLongPrivKey.multiply(c_i_int).mod(settings.qmod)).mod(settings.qmod);
         let sig = context.myEphPrivKey.signStringWithSHA256(c_i_hashed);
 
         // Adding first session key
@@ -409,11 +370,11 @@ module.exports = function($_, time) {
         };
 
         let d_i = new BigInteger(msg[0], 10);
-        let exp1 = g.modPow(d_i, pmod);
+        let exp1 = settings.g.modPow(d_i, settings.pmod);
 
         let BigIntC_I = new BigInteger(context.c_i, 10);
-        let exp2 = context.longtermPubKeys[peer].modPow(BigIntC_I, pmod);
-        let d_check = exp1.multiply(exp2).mod(pmod);
+        let exp2 = context.longtermPubKeys[peer].modPow(BigIntC_I, settings.pmod);
+        let d_check = exp1.multiply(exp2).mod(settings.pmod);
 
         if (d_check.toString() !== context.expAuthNonce[peer].toString()) {
             result["status"] = "D CHECK FAILED";
@@ -430,7 +391,6 @@ module.exports = function($_, time) {
         return result;
     };
 
-    //let CONTEXTS = global.CONTEXTS = {};
 
     /**
      * Singleton for mpOTR context
@@ -442,8 +402,6 @@ module.exports = function($_, time) {
 
         this.chord = chord;
         this.room = room;
-
-        //CONTEXTS[room.id] = this;
 
         this["status"] = $_.STATUS.UNENCRYPTED;
 
@@ -477,8 +435,8 @@ module.exports = function($_, time) {
         this.reset = function () {
             this["status"] = $_.STATUS.UNENCRYPTED;
             this.shutdown_sended = false;
-            this.myLongPubKey = undefined;
-            this.myLongPrivKey = undefined;
+            //this.myLongPubKey = undefined;
+            //this.myLongPrivKey = undefined;
             this.myEphPrivKey = undefined;
             this.myEphPubKey = undefined;
             this.k_i = undefined;
@@ -1143,8 +1101,8 @@ module.exports = function($_, time) {
             );
 
             this.bd.ratcheting_now = true;
-            this.bd.x = generateNumber().mod(qmod);
-            this.bd.ks[this.chord.id] = g.modPow(this.bd.x, pmod);
+            this.bd.x = settings.generateNumber().mod(settings.qmod);
+            this.bd.ks[this.chord.id] = settings.g.modPow(this.bd.x, settings.pmod);
 
             this.broadcastOldBlue({
                 type: $_.MSG.BD_KEY_RATCHET,
@@ -1159,7 +1117,7 @@ module.exports = function($_, time) {
         this.bd.sendRound2 = () => {
             let left = this.bd.ks[this.bd.left];
             let right = this.bd.ks[this.bd.right];
-            this.bd.Ks[this.chord.id] = (right.multiply(left.modInverse(pmod))).modPow(this.bd.x, pmod);
+            this.bd.Ks[this.chord.id] = (right.multiply(left.modInverse(settings.pmod))).modPow(this.bd.x, settings.pmod);
 
             this.broadcastOldBlue({
                 type: $_.MSG.BD_KEY_RATCHET,
@@ -1208,14 +1166,14 @@ module.exports = function($_, time) {
 
                     if (Object.keys(this.bd.Ks).length === this.bd.n) {
                         left = this.bd.ks[this.bd.left];
-                        let shared_secret = left.modPow(this.bd.x.multiply(this.bd.n_bi), pmod);
+                        let shared_secret = left.modPow(this.bd.x.multiply(this.bd.n_bi), settings.pmod);
 
                         for (let i = 0; i < this.bd.n - 1; ++i) {
                             let d = this.bd.n_bi.subtract(new BigInteger((i + 1).toString(), 10));
 
                             shared_secret = shared_secret
                                 .multiply(this.bd.Ks[this.bd.sorted_peers[(this.bd.k + i) % this.bd.n]]
-                                    .modPow(d, pmod)).mod(pmod);
+                                    .modPow(d, settings.pmod)).mod(settings.pmod);
                         }
 
                         this.bd.reset(true);

@@ -1,12 +1,12 @@
 const
-	ChordModule = require("../lib/chord"),
+	ChordModule = require("../lib/chord/chord"),
 	ChatModule = require("./chat"),
-	TimeModule = require('./time'),
+	TimeModule = require("./time"),
 	GUIModule = require("./gui"),
 	EventModule = require("./events"),
 	toClipboard = require("./clipboard"),
-	CryptoModule = require('./crypto'),
-	BigInt = require('big-integer');
+	CryptoModule = require("./crypto"),
+	BigInt = require("big-integer");
 
 const
 	chat = new ChatModule(),
@@ -29,11 +29,8 @@ let CONTEXTS = {},
 
 global.E = E;
 global.GUI = GUI;
-CONTEXTS = CONTEXTS;
 global.EMITTERS = EMITTERS;
-
 global.chat = chat;
-//global.chord = chord;
 
 
 //////////////////////////////////////////////////////////////
@@ -77,7 +74,7 @@ function final() {
 
 function initialize(id) {
 	GUI.hideDialog();
-	
+
 	GUI.promptSubmit.onclick = () => {
 		let name = GUI.promptText.value;
 
@@ -89,6 +86,10 @@ function initialize(id) {
 
 		GUI.promptSubmit.onclick = () => {
 			chat.mail = GUI.promptText.value;
+
+			var k_pair = CryptoModule.settings.generateExpPair();
+			chat.key = k_pair[0];
+			chat.key_pub = k_pair[1];
 
 			final();
 		};
@@ -102,7 +103,7 @@ function initialize(id) {
 function changeMPOTR() {
 	let c = CONTEXTS[chat.getRoom().id];
 
-	//console.log(c, arguments);
+	console.log(c, arguments);
 	
 	switch(c.status) {	
 		case E.STATUS.AUTH:
@@ -158,7 +159,7 @@ function newRoom(rid, name, status) {
 			chord.publish(rid, E.MSG.BROADCAST, {type: "stopChat", room: rid});
 
 		let $_ = new EventModule(),
-			mpOTR = CryptoModule($_, time);
+			mpOTR = CryptoModule.main($_, time, [chat.key, chat.key_pub]);
 
 		CONTEXTS[rid] = new mpOTR(chord, chat.addRoom(rid, name));
 
