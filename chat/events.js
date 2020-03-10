@@ -1,4 +1,4 @@
-var EventEmitter = require("./EventEmitter");
+var EventEmitter = require("../lib/EventEmitter");
 
 module.exports = function() {
     return {
@@ -19,7 +19,14 @@ module.exports = function() {
             CONN_LIST_ADD: "EVENTS.CONN_LIST_ADD",
             CONN_LIST_REMOVE: "EVENTS.CONN_LIST_REMOVE",
             INCOMING_MSG: "EVENTS.INCOMING_MSG",
-            OLDBLUE_MSG_DELIVERED: "EVENTS.OLDBLUE_MSG_DELIVERED"
+            OLDBLUE_MSG_DELIVERED: "EVENTS.OLDBLUE_MSG_DELIVERED",
+
+            SMP_INIT: 'EVENTS.SMP_INIT',
+            SMP_STEP1: 'EVENTS.SMP_STEP1',
+            SMP_STEP2: 'EVENTS.SMP_STEP2',
+            SMP_STEP3: 'EVENTS.SMP_STEP3',
+            SMP_STEP4: 'EVENTS.SMP_STEP4',
+            CSMP: 'EVENTS.CSMP'
         },
 
         /**
@@ -36,7 +43,14 @@ module.exports = function() {
             MPOTR_LOST_MSG: "MSG.MPOTR_LOST_MSG",
             MPOTR_SHUTDOWN: "MSG.MPOTR_SHUTDOWN",
             BD_KEY_RATCHET: "MSG.BD_KEY_RATCHET",
-            BROADCAST: "BROADCAST"
+            BROADCAST: "BROADCAST",
+
+            CSMP_INIT: 'MSG.CSMP_INIT',
+            CSMP_RESULT: 'MSG.CSMP_RESULT',
+            SMP_STEP1: "MSG.SMP_STEP1",
+            SMP_STEP2: "MSG.SMP_STEP2",
+            SMP_STEP3: 'MSG.SMP_STEP3',
+            SMP_STEP4: 'MSG.SMP_STEP4'
         },
 
         /**
@@ -49,6 +63,20 @@ module.exports = function() {
             AUTH:           "STATUS.AUTH",
             MPOTR:          "STATUS.MPOTR",
             SHUTDOWN:       "STATUS.SHUTDOWN"
+        },
+
+        CSMP_STATUS: {
+            FREE: 'CSMP_STATUS.FREE',
+            CHECKING: 'CSMP_STATUS.CHECKING',
+            DONE: 'CSMP_STATUS.DONE'
+        },
+
+        CSMP_RESULTS: {
+            GOOD: 'CSMP_RESULTS.GOOD',
+            BAD: 'CSMP_RESULTS.BAD',
+            IN_PROCESS: 'CSMP_RESULTS.IN_PROCESS',
+            UNKNOWN: 'CSMP_RESULTS.UNKNOWN',
+            BAD_NOT_SURE: 'CSMP_RESULTS.BAD_NOT_SURE'
         },
 
         ee: new EventEmitter()

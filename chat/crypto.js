@@ -1,14 +1,14 @@
-const Settings = require("./settings");
+const Settings = require("./settings"),
+      SMP = require("./smp");
+
 const settings = new Settings();
 
 exports.settings = settings;
 
 exports.main = function($_, time, key_pair) {
     "use strict";
-
     /**
      * Round class.
-     * Yup, class in JS!
      * @returns {Round}
      */
     function Round(number) {
@@ -396,12 +396,14 @@ exports.main = function($_, time, key_pair) {
      * Singleton for mpOTR context
      * @param {Object} chord Chord
      * @param {Object} room Current room
+     * @param {Object} chat 
      * @returns {mpOTRContext}
      */
-    function mpOTRContext(chord, room) {
+    function mpOTRContext(chord, room, chat) {
 
         this.chord = chord;
         this.room = room;
+        this.chat = chat;
 
         this["status"] = $_.STATUS.UNENCRYPTED;
 
@@ -454,6 +456,14 @@ exports.main = function($_, time, key_pair) {
             this.d_i = undefined;
             this.sig = undefined;
             this.c_i = undefined;
+
+            this.smList = {};
+            this.csmp = undefined;
+            this.secret = undefined;
+
+            for (var i = 0; i < this.room.users.length; i++){
+                this.smList[this.room.users[i]] = new SMP(this, settings);
+            }
 
             // OldBlue buffers
             this.frontier = [];
@@ -633,6 +643,45 @@ exports.main = function($_, time, key_pair) {
             // OldBlue ends
         };
 
+//////////////////////////////////////////////////////////////////////Непонятно зачем нужные функции
+// this.generateKey = (pswd) => {
+//     if ((longterm !== undefined) && (client.whitelist_key_flag_encrypt)){
+//         client.whitelist_keys = client.context.decrypt_array(client.whitelist_keys, longterm);
+//         client.whitelist_key_flag_encrypt = false;
+//     }
+
+//     let long_pair;
+//     long_pair = generateExpPair(key_length);
+//     var encrPr = this.encryptMessageByPswd(long_pair[0].toString(), pswd);
+//     var encrPub = this.encryptMessageByPswd(long_pair[1].toString(), pswd);
+//     var pair = [encrPr, encrPub];
+//     return pair;
+// };
+
+// this.setPassword = (pswd, pub, priv) => {
+//     let d_pub = this.decryptMessageByPswd(pub, pswd);
+//     let d_priv = this.decryptMessageByPswd(priv, pswd);
+//     let big_int_pub = new BigInteger(d_pub);
+//     let big_int_priv = new BigInteger(d_priv);
+//     if(verifyPair(big_int_pub, big_int_priv)) {
+//         longterm = big_int_priv;
+//         pub_longterm = big_int_pub;
+//         ready_to_mpotr = true;
+//     }
+
+//     //decrypt whitelist_keys
+//     if (client.whitelist_key_flag_encrypt){
+//         client.whitelist_keys = client.context.decrypt_array(client.whitelist_keys, longterm);
+//         client.whitelist_key_flag_encrypt = false;
+//     }
+// };
+
+// this.getPubKey = () => {
+//   return pub_longterm;
+// };
+/////////////////////////////////////////////////////////////////////
+
+
         this.deliverMessage = (msg) => {
             let text = this.decryptMessage(msg["data"], msg["key_id"]);
 
@@ -793,8 +842,6 @@ exports.main = function($_, time, key_pair) {
             $_.ee.emitEvent($_.EVENTS.MPOTR_SHUTDOWN_START);
             $_.ee.emitEvent($_.EVENTS.BLOCK_CHAT);
 
-            //this.stopLocal();
-
             this.sendShutdown();
         };
 
@@ -810,7 +857,6 @@ exports.main = function($_, time, key_pair) {
             authenticationPhase.then(() => {
                 console.log('Success!');
             }).catch((err) => {
-                //alert(err);
                 console.log(err);
             });
 
@@ -820,6 +866,21 @@ exports.main = function($_, time, key_pair) {
         // Change status on start of chat
         $_.ee.addListener($_.EVENTS.MPOTR_START, () => {
             this.status = $_.STATUS.MPOTR;
+//////////////////////////////////////////////////////////////////
+            // SMP available after mpotr starts
+            // for (let i = 0; i < this.client.connList.length; ++i) {
+            //     let friend = this.client.connList[i].peer;
+            //     let $test = $("[id='sm_status_" + friend + "']");
+
+            //     if (this.client.whitelist_keys.indexOf(this.longtermPubKeys[friend].toString(16)) !== -1) {
+            //         $test.prop("className", "btn-warning btn-block");
+            //         $test.text('OK');
+            //         $test.prop("disabled", false);
+            //     } else {
+            //         $test.prop("className", "btn-danger btn-block");
+            //         $test.prop("disabled", false);
+            //     }
+            // }
         });
 
         // Reset context on chat shutdown
@@ -1252,6 +1313,37 @@ exports.main = function($_, time, key_pair) {
                 break;
             }
         }, 3000);
+
+        /**
+         * encrypt elements of whitelist_keys with private key
+         * @param array
+         * @return a
+         */
+        this.encrypt_array= function(array){
+            let a = [];
+            let key = sha256.hex(this.myLongPrivKey.toString()).slice(0, 32);
+
+            for (let i=0; i < array.length; ++i){
+                a[i] = cryptico.encryptAESCBC(array[i], key);
+            }
+            return a;
+        };
+
+        /**
+         * decrypt elements of whitelist_keys with private key
+         * @param array
+         * @param priv_key
+         * @return a
+         */
+        this.decrypt_array= function(array, priv_key){
+            let a = [];
+            let key = sha256.hex(priv_key.toString()).slice(0, 32);
+
+            for (let i=0; i < array.length; ++i){
+                a[i] = cryptico.decryptAESCBC(array[i], key);
+            }
+            return a;
+        };
     }
 
     return mpOTRContext;

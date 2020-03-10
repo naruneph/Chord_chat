@@ -161,7 +161,7 @@ function newRoom(rid, name, status) {
 		let $_ = new EventModule(),
 			mpOTR = CryptoModule.main($_, time, [chat.key, chat.key_pub]);
 
-		CONTEXTS[rid] = new mpOTR(chord, chat.addRoom(rid, name));
+		CONTEXTS[rid] = new mpOTR(chord, chat.addRoom(rid, name), chat);
 
 		EMITTERS[rid] = $_;
 
@@ -385,9 +385,6 @@ ChordModule.prototype.getWRTCString(function(str) {
 		if(message.type == E.MSG.UNENCRYPTED)
 			if(EMITTERS[message.room])
 				EMITTERS[message.room].ee.emitEvent("message", [message]);
-		//else {
-		//	CONTEXTS[message.room].emitEvent(message.type, [message]);
-		//}
 	});
 
 	chord.on("-whatIsYourID-", function(obj) {
@@ -403,7 +400,6 @@ ChordModule.prototype.getWRTCString(function(str) {
 
 		if(room.id == chat.currentRoom)
 			GUI.updateUsers(room.users);
-		//E.ee.emitEvent();
 	});
 
 	chord.on(E.MSG.CONN_LIST_REMOVE, function(data) {
@@ -415,7 +411,6 @@ ChordModule.prototype.getWRTCString(function(str) {
 		if(room.id == chat.currentRoom)
 			GUI.updateUsers(room.users);
 
-		//console.log(data, e);
 
 		if(e)
 			e.ee.emitEvent(E.EVENT.CONN_LIST_REMOVE, [data]);
@@ -424,7 +419,6 @@ ChordModule.prototype.getWRTCString(function(str) {
 	chord.on(E.MSG.MPOTR_AUTH, function(data) {
 		let e = EMITTERS[data[0]];
 
-		//console.log(data, e);
 		if(e)
 			e.ee.emitEvent(E.MSG.MPOTR_AUTH, [data]);
 	});
@@ -432,17 +426,15 @@ ChordModule.prototype.getWRTCString(function(str) {
 	chord.on(E.MSG.MPOTR_INIT, function(data) {
 		let e = EMITTERS[data[0]];
 
-		//console.log(data, e);
+
 		if(e)
 			e.ee.emitEvent(E.MSG.MPOTR_INIT, [data]);
 	});
 
 	chord.on(E.MSG.BROADCAST, function(data) {
-		//if(data.type ==E.MSG.MPOTR_LOST_MSG)
-		//	E.ee.emitEvent(E.MSG.MPOTR_LOST_MSG, data);
+
 		let event = EMITTERS[data.room];
 
-		//console.log(data);
 		if(event)
 			event.ee.emitEvent(data.type, [data]);
 	});

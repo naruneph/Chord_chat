@@ -11,6 +11,10 @@ class Chat {
 		this.key = null;
 		this.key_pub = null;
 
+		this.whitelist = [];
+		this.whitelist_keys = [];
+		//this.whitelist_key_flag_encrypt = false;
+		
 		this.getGlobalName = function(id) {
 			return id;
 		};
