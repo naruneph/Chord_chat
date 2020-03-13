@@ -1,6 +1,6 @@
-function SMP(context, settings) {
+function SMP($_, context, settings) {
 
-    let SM_MSG1_LEN = 7;
+    let SM_MSG1_LEN = 6; // было 7
     let SM_MSG2_LEN = 11;
     let SM_MSG3_LEN = 8;
     let SM_MSG4_LEN = 3;
@@ -14,9 +14,8 @@ function SMP(context, settings) {
 
     this.reset = function(){
         this.context = context;
-        this.chat = context.chat;
-
-        this.myID = undefined;
+        this.myID = chat.id;
+        this.friendID = undefined;
         this.secret = undefined;
         this.friend_pubKey = undefined;
 
@@ -32,21 +31,30 @@ function SMP(context, settings) {
         this.qab = undefined;
 
         this.nextExpected = "SMP_EXPECT1";
-        this.received_question = 'No question';
         this.sm_prog_state = "SMP_PROG_OK";
     };
 
-    this.smpInit = function(pass_phrase, friendID, initiating, question, input){
+    this.sendMes = function(msg, type){
+        console.log(this);
+        let data = {
+            "roomId": this.context.room.id,
+            "type": type,
+            "data": {to: this.friendID, from: this.myID, data: msg}
+        };
+        this.context.signMessage(data);
+        this.context.chord.send(this.friendID, type, data);
+    };
+
+    this.smpInit = function(pass_phrase, friendID, initiating, input){
+        
         this.reset();
         this.friendID = friendID;
-        this.myID = context.chord.id;
-        this.received_question = question;
-        this.friend_pubKey = context.longtermPubKeys[friendID].toSring(16);
+        this.friend_pubKey = context.longtermPubKeys[friendID].toString(16);
 
         let combined_secret = "";
 
         let myLongPubKey = context.myLongPubKey.toString(16);
-        let resp_LongPubKey = context.longtermPubKeys[friendID].toString(16);
+        let resp_LongPubKey = this.friend_pubKey;
         let init_fingerprint = cryptico.publicKeyID(myLongPubKey);
         let respond_fingerprint = cryptico.publicKeyID(resp_LongPubKey);
 
@@ -64,31 +72,32 @@ function SMP(context, settings) {
         this.secret = new BigInteger(sha256.hex(combined_secret),16);
 
         if (initiating) {
-            this.sendMes(sm_step1(this, question), $_.MSG.SMP_STEP1);
+            this.sendMes(sm_step1(this), $_.MSG.SMP_STEP1);
             this.nextExpected = "SMP_EXPECT3";
         } else {
-            let err = sm_step2a(this, input, question);
+            let err = sm_step2a(this, input);
             if (err !== "OK") {alert(err); this.reset(); return err;}
 
             this.sendMes(sm_step2b(this), $_.MSG.SMP_STEP2);
             this.nextExpected = "SMP_EXPECT4";
         }
+        
     };
-/////////////////////////////////////////////////////
-    // this.button_good = function (peer) {
-    //     var $sm_status = $("[id='sm_status_" + peer + "']");
-    //     //$sm_status.prop("disabled", true);
-    //     $sm_status.prop("className", "btn-success btn-block");
-    //     $sm_status.text('Secure');
-    // };
 
-    // this.button_bad = function (peer) {
-    //     var $sm_status = $("[id='sm_status_" + peer + "']");
-    //     $sm_status.prop("className", "btn-danger btn-block");
-    //     alert(this.friendID + " is suspicious!");
-    //     $sm_status.text('Not secure');
-    // };
-///////////////////////////////////////////////////
+    //должна делать зелёненьким
+    /*this.button_good = function (peer) {
+        var elem = document.getElementById(`sm_status_${peer}`)
+        //elem.prop("disabled", true);
+        elem.classList.add("status_good");
+    };
+
+    //должна делать красненьким
+    this.button_bad = function (peer) {
+        var elem = document.getElementById(`sm_status_${peer}`)
+        //elem.prop("disabled", true);
+        elem.classList.add("status_bad");
+    }; */
+
     /**
      * For each step send next message, set the next expected one
      * Informs the user about the assumption of smp
@@ -96,7 +105,7 @@ function SMP(context, settings) {
      * @param {int} step number of proceding step
      **/
     this.smp_auth = function(input, step){
-        switch (step) {
+        switch(step) {
             case 3:
                 let msg3 = sm_step3(this, input);
                 if (typeof(msg3) === 'object') {
@@ -108,82 +117,53 @@ function SMP(context, settings) {
                 }
                 break;
             case 4:
-                let output = []; //to send to function with reference
+                let output = []; 
                 this.sm_prog_state = sm_step4(this, input, output);
-        
                 this.sendMes(output[0], $_.MSG.SMP_STEP4);
-
                 this.nextExpected = "SMP_EXPECT_NO";
-///////////////////////////////////////////////////////////////////
-                if (this.sm_prog_state === "OK") {
-                    let $sm_status = $("[id='sm_status_" + this.friendID + "']");
-                      
-                    $sm_status.prop("className", "btn-success btn-block");
-                    $sm_status.text('Secure');
-///////////////////////////////////////////////////////////////////
-                    if (this.chat.whitelist_keys.indexOf(this.friend_pubKey) === -1) {
-                        this.chat.whitelist_keys.push(this.friend_pubKey);
-
-                        //encrypt whitelist_keys to send to localstorage
-                        let encr_whitelist = this.context.encrypt_array(this.chat.whitelist_keys);
-                        localStorage["smp_whitelist_" + this.myID] = JSON.stringify(encr_whitelist);
-
+                if(this.sm_prog_state === "OK") {
+                    //
+                    //this.friendID is secure - сделать зелёненьким
+                    //
+                    if(!chat.validUsers.has(this.friendID)){
+                        chat.validUsers.set(this.friendID, this.friend_pubKey);
                     }
+
                     this.context.csmp.result[this.friendID] = $_.CSMP_RESULTS.GOOD;
                     this.context.csmp.groups[this.friendID] = this.myID;
+                } else {
+                    //
+                    //this.friendID is not secure - сделать красненьким
+                    //
+                    if(chat.validUsers.has(this.friendID) && (chat.validUsers.get(this.friendID) === this.friend_pubKey)){
+                        chat.validUsers.delete(this.friendID);
                     }
-                    else {
-//////////////////////////////////////////////////                        
-                        let $sm_status = $("[id='sm_status_" + this.friendID + "']");
-                        $sm_status.prop("className", "btn-danger btn-block");
-                        alert(this.friendID + " is suspicious!");
-                        $sm_status.text('Not secure');
-//////////////////////////////////////////////////
-                        // delete pubkey from whitelist
-                        if (this.chat.whitelist_keys.indexOf(this.friend_pubKey) !== -1) {
-                            this.chat.whitelist_keys.splice(this.chat.whitelist_keys.indexOf(this.friend_pubKey), 1);
-                            
-                            //encrypt whitelist_keys to send to localstorage
-                            var encr_whitelist = this.context.encrypt_array(this.chat.whitelist_keys);
-                            localStorage["smp_whitelist_" + this.myID] = JSON.stringify(encr_whitelist);
+                    this.context.csmp.result[this.friendID] = $_.CSMP_RESULTS.BAD;
+                    this.context.csmp.groups[this.friendID] = this.friendID;
+                }
+                this.context.csmp.checked_by_me.push(this.friendID);
+                this.context.csmp.amount_unknown -= 1;
+                this.reset();
+                if (this.context.csmp.ready_to_send_res() === 1){
+                    this.context.csmp.sendResults();
+                }
+                if (this.context.csmp.mail[this.friendID] !== undefined){
+                    this.context.csmp.handleMessage(this.friendID, this.context.csmp.mail[this.friendID]);
+                }
 
-                        }
-                        this.context.csmp.result[this.friendID] = $_.CSMP_RESULTS.BAD;
-                        this.context.csmp.groups[this.friendID] = this.friendID;
-                    }
-
-                    this.context.csmp.checked_by_me.push(this.friendID);
-
-                    this.context.csmp.amount_unknown -= 1;
- 
-                    this.reset();
-                    if (this.context.csmp.ready_to_send_res() === 1){
-                        this.context.csmp.sendResults();
-                    }
-                    if (this.context.csmp.mail[this.friendID] !== undefined){
-                        this.context.handleMessage(this.friendID, this.context.csmp.mail[this.friendID]);
-                    }
-
+                
                 break;
             case 5:
                 this.sm_prog_state = sm_step5(this, input);
                 this.nextExpected = "SMP_EXPECT_NO";
-
-                if (this.sm_prog_state === "OK") {
-//////////////////////////////////////////////////////////////                    
-                    let $sm_status = $("[id='sm_status_" + this.friendID + "']");
-                    $sm_status.prop("className", "btn-success btn-block");
-                    $sm_status.text('Secure');
-//////////////////////////////////////////////////////////////                    
-                    if (this.chat.whitelist_keys.indexOf(this.friend_pubKey) === -1) {
-                        this.chat.whitelist_keys.push(this.friend_pubKey);
-
-                        //encrypt whitelist_keys to send to localstorage
-                        let encr_whitelist = this.context.encrypt_array(this.chat.whitelist_keys);
-                        localStorage["smp_whitelist_" + this.myID] = JSON.stringify(encr_whitelist);
-
+                if(this.sm_prog_state === "OK") {
+                    //
+                    //this.friendID is secure - сделать зелёненьким
+                    //
+                    if(!chat.validUsers.has(this.friendID)){
+                        chat.validUsers.set(this.friendID, this.friend_pubKey);
                     }
-                    // Save results  and add a member in group
+
                     this.context.csmp.result[this.friendID] = $_.CSMP_RESULTS.GOOD;
                     this.context.csmp.status = $_.CSMP_STATUS.DONE;
                     this.context.csmp.groups[this.friendID] = this.myID;
@@ -194,61 +174,39 @@ function SMP(context, settings) {
                         this.context.csmp.sendResults();
                     }
                     if (this.context.csmp.mail[this.friendID] !== undefined){
-                        this.context.handleMessage(this.friendID, this.context.csmp.mail[this.friendID]);
+                        this.context.csmp.handleMessage(this.friendID, this.context.csmp.mail[this.friendID]);
                     }
-
-
                 } else {
-/////////////////////////////////////////////////////////////////                    
-                    alert(this.friendID + " is suspicious!");
-                    let $sm_status = $("[id='sm_status_" + this.friendID + "']");
-                    $sm_status.text('Not secure');
-                    $sm_status.prop("className", "btn-danger btn-block");
-////////////////////////////////////////////////////////////////
-
-                    // delete pubkey from whitelist
-                    if (this.chat.whitelist_keys.indexOf(this.friend_pubKey) !== -1) {
-                        this.chat.whitelist_keys.splice(this.chat.whitelist_keys.indexOf(this.friend_pubKey), 1);
-                        
-                        //encrypt whitelist_keys to send to localstorage
-                        let encr_whitelist = this.context.encrypt_array(this.chat.whitelist_keys);
-                        localStorage["smp_whitelist_" + this.myID] = JSON.stringify(encr_whitelist)
+                    //
+                    //this.friendID is not secure - сделать красненьким
+                    //
+                    if(chat.validUsers.has(this.friendID) && (chat.validUsers.get(this.friendID) === this.friend_pubKey)){
+                        chat.validUsers.delete(this.friendID);
                     }
-                    // Save results
                     this.context.csmp.result[this.friendID] = $_.CSMP_RESULTS.BAD;
                     this.context.csmp.status = $_.CSMP_STATUS.FREE;
                     this.context.csmp.groups[this.friendID] = this.friendID;
                     this.context.csmp.amount_unknown -= 1;
                     this.context.csmp.checked_by_me.push(this.friendID);
-
                     if (this.context.csmp.ready_to_send_res() === 1){
                         this.context.csmp.sendResults();
                     }
-                    if (this.context.csmp.mail[this.friend] !== undefined){
-                        this.context.handleMessage(this.friendID, this.context.csmp.mail[this.friendID]);
+                    if (this.context.csmp.mail[this.friendID] !== undefined){
+                        this.context.csmp.handleMessage(this.friendID, this.context.csmp.mail[this.friendID]);
                     }
-
                     if (this.context.csmp.status === $_.CSMP_STATUS.FREE){
-                        if (this.context.csmp.choose_aim()){
-////////////////////////////////////////////////////////////////////////////////////                            
-                            // this.context.client.smp_start(this.context.csmp.aim, 1, 0);
+                        if (this.context.csmp.choose_aim()){                      
+                              
+                            this.context.smp_start(this.context.csmp.aim, 1, 0);
                         }
                     }
+
                 }
                 this.reset();
-                break;                
+                break;
         }
+        GUI.updateUsers();
     };
-
-    this.sendMes = function(msg, type){
-        let data = {
-            "type": type,
-            "data": {to: this.friendID, from: this.myID, data: msg}
-        };
-        this.context.signMessage(data);
-        this.context.chord.send(this.friendID, type, data);
-    };
-
 
     /** Create first message in SMP exchange.  Input is Alice's secret value
      * which this protocol aims to compare to Bob's.  Output is a serialized
@@ -260,9 +218,8 @@ function SMP(context, settings) {
      * @param {SMP} astate
      * @param {String} question (question = 'No question', if no question)
      * */
-    function sm_step1(astate, question) {
+    function sm_step1(astate) {
         let msg1 = [];
-        astate.received_question = question;
 
         astate.x2 = randomExponent();
         astate.x3 = randomExponent();
@@ -273,59 +230,53 @@ function SMP(context, settings) {
         msg1[3] = astate.g1.modPow(astate.x3, SM_MODULUS);
         sm_proof_know_log(msg1, 4, 5, astate.g1, astate.x3);
 
-        msg1[6] = question;
-
         let output = serialize_array(msg1);
 
         astate.sm_prog_state = "OK";
         return output;
     }
 
-
     /* Receive the first message in SMP exchange, which was generated by
     * sm_step1.  Input is saved until the user inputs their secret
     * information.  No output.
     * Check the ZK proofs and stores Alice's msg
     * */
-    function sm_step2a(bstate, input){
-        let msg1 = [];
-        let err;
+   function sm_step2a(bstate, input){
+    let msg1 = [];
+    let err;
 
-        bstate.sm_prog_state = "SMP_PROG_CHEATED";
+    bstate.sm_prog_state = "SMP_PROG_CHEATED";
+console.log(input);/////////////////////////////////input = 0????????
+    // Calculate message in string to BigInteger
+    err = unserialize_array(msg1, SM_MSG1_LEN, input);
+    if (err){ return "SMP_ERR_MSS_LEN";}
 
-        // Calculate message in string to BigInteger
-        err = unserialize_array(msg1, SM_MSG1_LEN, input);
-        if (err) return "SMP_ERR_MSS_LEN";
 
-
-        if (check_group_elem(msg1[0]) || check_expon(msg1[2]) ||
-            check_group_elem(msg1[3]) || check_expon(msg1[5])) {
-            return "SMP_ERR_INV_VALUE1";
-        }
-
-        /* Store Alice's g3a value for later in the protocol */
-        bstate.g3o = msg1[3];
-
-        /* Verify Alice's proofs */
-        if (sm_check_know_log(msg1[1], msg1[2], bstate.g1, msg1[0], 1) ||
-            sm_check_know_log(msg1[4], msg1[5], bstate.g1, msg1[3], 2)) {
-            return "SMP_ERR_INV_VALUE2";
-        }
-
-        /* Create Bob's half of the generators g2 and g3 */
-        bstate.x2 = randomExponent();
-        bstate.x3 = randomExponent();
-
-        /* Combine the two halves from Bob and Alice and determine g2 and g3 */
-        bstate.g2 = msg1[0].modPow(bstate.x2, SM_MODULUS);
-        bstate.g3 = msg1[3].modPow(bstate.x3, SM_MODULUS);
-
-        bstate.sm_prog_state = "OK";
-        return "OK";
-
+    if (check_group_elem(msg1[0]) || check_expon(msg1[2]) ||
+        check_group_elem(msg1[3]) || check_expon(msg1[5])) {
+        return "SMP_ERR_INV_VALUE1";
     }
 
+    /* Store Alice's g3a value for later in the protocol */
+    bstate.g3o = msg1[3];
 
+    /* Verify Alice's proofs */
+    if (sm_check_know_log(msg1[1], msg1[2], bstate.g1, msg1[0], 1) ||
+        sm_check_know_log(msg1[4], msg1[5], bstate.g1, msg1[3], 2)) {
+        return "SMP_ERR_INV_VALUE2";
+    }
+
+    /* Create Bob's half of the generators g2 and g3 */
+    bstate.x2 = randomExponent();
+    bstate.x3 = randomExponent();
+
+    /* Combine the two halves from Bob and Alice and determine g2 and g3 */
+    bstate.g2 = msg1[0].modPow(bstate.x2, SM_MODULUS);
+    bstate.g3 = msg1[3].modPow(bstate.x3, SM_MODULUS);
+
+    bstate.sm_prog_state = "OK";
+    return "OK";
+}
 
     /** Create second message in SMP exchange.  Input is Bob's secret value.
      * Information from earlier steps in the exchange is taken from Bob's
@@ -437,68 +388,67 @@ function SMP(context, settings) {
         return output;
     }
 
+        /* Create final message in SMP exchange.  Input is a message generated
+         * by sm_step3. Output is a serialized mpi array whose elements
+         * correspond to the following:
+         * [0] = rb, calculated as (Qa/Qb)^x3 where x3 is the exponent used in g3b
+         * [1] = cr, [2] = d7, Bob's ZK proof that rb is formed correctly
+         * This method also checks if Alice and Bob's secrets were the same.  If
+         * so, it returns NO_ERROR.  If the secrets differ, an INV_VALUE error is
+         * returned instead. */
+        function sm_step4(bstate,input, output){
+            let comp;
+            let inv, rab;
+            let msg3 = [];
+            let msg4 = [];
+            let err;
+            err = unserialize_array(msg3, SM_MSG3_LEN, input);
+            if (err) return err;
 
-    /* Create final message in SMP exchange.  Input is a message generated
-    * by sm_step3. Output is a serialized mpi array whose elements
-    * correspond to the following:
-    * [0] = rb, calculated as (Qa/Qb)^x3 where x3 is the exponent used in g3b
-    * [1] = cr, [2] = d7, Bob's ZK proof that rb is formed correctly
-    * This method also checks if Alice and Bob's secrets were the same.  If
-    * so, it returns NO_ERROR.  If the secrets differ, an INV_VALUE error is
-    * returned instead. */
-    function sm_step4(bstate,input, output){
-        let comp;
-        let inv, rab;
-        let msg3 = [];
-        let msg4 = [];
-        let err;
-        err = unserialize_array(msg3, SM_MSG3_LEN, input);
-        if (err) return err;
+            bstate.sm_prog_state = "SMP_PROG_CHEATED";
 
-        bstate.sm_prog_state = "SMP_PROG_CHEATED";
+            if (check_group_elem(msg3[0]) || check_group_elem(msg3[1]) ||
+                check_group_elem(msg3[5]) || check_expon(msg3[3]) ||
+                check_expon(msg3[4]) || check_expon(msg3[7]))  {
+                return "SMP_ERR_INV_VALUE";
+            }
 
-        if (check_group_elem(msg3[0]) || check_group_elem(msg3[1]) ||
-            check_group_elem(msg3[5]) || check_expon(msg3[3]) ||
-            check_expon(msg3[4]) || check_expon(msg3[7]))  {
-            return "SMP_ERR_INV_VALUE";
+            /* Verify Alice's coordinate equality proof */
+            if (sm_check_equal_coords(msg3[2], msg3[3], msg3[4], msg3[0], msg3[1],
+                    bstate, 6)) {
+                return "SMP_ERR_INV_VALUE";
+            }
+
+            /* Find Pa/Pb and Qa/Qb */
+            inv = bstate.p.modInverse(SM_MODULUS);
+            bstate.pab = msg3[0].multiply(inv).mod(SM_MODULUS);
+            inv = bstate.q.modInverse(SM_MODULUS);
+            bstate.qab = msg3[1].multiply(inv).mod(SM_MODULUS);
+
+            /* Verify Alice's log equality proof */
+            if (sm_check_equal_logs(msg3[6], msg3[7], msg3[5], bstate, 7)) {
+                return "SMP_ERR_INV_VALUE";
+            }
+
+            /* Calculate Rb and proof */
+            msg4[0] = bstate.qab.modPow(bstate.x3, SM_MODULUS);
+            sm_proof_equal_logs(msg4,1,2, bstate, 8);
+
+            output[0] = serialize_array( msg4);
+
+
+            /* Calculate Rab and verify that secrets match */
+            rab = msg3[5].modPow(bstate.x3, SM_MODULUS);
+            comp = rab.compareTo(bstate.pab) !== 0;
+
+            bstate.sm_prog_state = comp ? "SMP_PROG_FAILED":
+                "SMP_PROG_SUCCEEDED";
+
+            if (comp)
+                return "SMP_ERR_INV_VALUE";
+            else
+                return "OK";
         }
-
-        /* Verify Alice's coordinate equality proof */
-        if (sm_check_equal_coords(msg3[2], msg3[3], msg3[4], msg3[0], msg3[1],
-                bstate, 6)) {
-            return "SMP_ERR_INV_VALUE";
-        }
-
-        /* Find Pa/Pb and Qa/Qb */
-        inv = bstate.p.modInverse(SM_MODULUS);
-        bstate.pab = msg3[0].multiply(inv).mod(SM_MODULUS);
-        inv = bstate.q.modInverse(SM_MODULUS);
-        bstate.qab = msg3[1].multiply(inv).mod(SM_MODULUS);
-
-        /* Verify Alice's log equality proof */
-        if (sm_check_equal_logs(msg3[6], msg3[7], msg3[5], bstate, 7)) {
-            return "SMP_ERR_INV_VALUE";
-        }
-
-        /* Calculate Rb and proof */
-        msg4[0] = bstate.qab.modPow(bstate.x3, SM_MODULUS);
-        sm_proof_equal_logs(msg4,1,2, bstate, 8);
-
-        output[0] = serialize_array( msg4);
-
-
-        /* Calculate Rab and verify that secrets match */
-        rab = msg3[5].modPow(bstate.x3, SM_MODULUS);
-        comp = rab.compareTo(bstate.pab) !== 0;
-
-        bstate.sm_prog_state = comp ? "SMP_PROG_FAILED":
-            "SMP_PROG_SUCCEEDED";
-
-        if (comp)
-            return "SMP_ERR_INV_VALUE";
-        else
-            return "OK";
-    }
 
     /* Receives the final SMP message, which was generated in sm_step.
     * This method checks if Alice and Bob's secrets were the same.  If
@@ -675,8 +625,6 @@ function SMP(context, settings) {
 
         return comp;
     }
-
-
 
     /*
     * Proof of knowledge of logs with exponents being equal

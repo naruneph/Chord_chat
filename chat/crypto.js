@@ -1,14 +1,13 @@
 const Settings = require("./settings"),
-      SMP = require("./smp");
-
+      SMP = require("./smp"),
+      CSMP = require("./csmp");
 const settings = new Settings();
 
 exports.settings = settings;
-
-exports.main = function($_, time, key_pair) {
-    "use strict";
-    /**
+exports.main = function($_, time) {
+/**
      * Round class.
+     * Yup, class in JS!
      * @returns {Round}
      */
     function Round(number) {
@@ -93,8 +92,8 @@ exports.main = function($_, time, key_pair) {
 
         let my_k_hashed = sha256.hex(my_k);
 
-        let longterm = key_pair[0];
-        let pub_longterm = key_pair[1];
+        let longterm = chat.key;
+        let pub_longterm = chat.key_pub;
 
         let eph_pair = settings.generatePair();
         let eph = eph_pair[0];
@@ -373,7 +372,7 @@ exports.main = function($_, time, key_pair) {
         let exp1 = settings.g.modPow(d_i, settings.pmod);
 
         let BigIntC_I = new BigInteger(context.c_i, 10);
-        let exp2 = context.longtermPubKeys[peer].modPow(BigIntC_I, settings.pmod);
+        let exp2 = context.longtermPubKeys[peer].modPow(BigIntC_I, pmod);
         let d_check = exp1.multiply(exp2).mod(settings.pmod);
 
         if (d_check.toString() !== context.expAuthNonce[peer].toString()) {
@@ -396,14 +395,13 @@ exports.main = function($_, time, key_pair) {
      * Singleton for mpOTR context
      * @param {Object} chord Chord
      * @param {Object} room Current room
-     * @param {Object} chat 
      * @returns {mpOTRContext}
      */
-    function mpOTRContext(chord, room, chat) {
+    function mpOTRContext(chord, room) {
 
         this.chord = chord;
         this.room = room;
-        this.chat = chat;
+
 
         this["status"] = $_.STATUS.UNENCRYPTED;
 
@@ -437,8 +435,8 @@ exports.main = function($_, time, key_pair) {
         this.reset = function () {
             this["status"] = $_.STATUS.UNENCRYPTED;
             this.shutdown_sended = false;
-            //this.myLongPubKey = undefined;
-            //this.myLongPrivKey = undefined;
+            // this.myLongPubKey = undefined;
+            // this.myLongPrivKey = undefined;
             this.myEphPrivKey = undefined;
             this.myEphPubKey = undefined;
             this.k_i = undefined;
@@ -457,12 +455,13 @@ exports.main = function($_, time, key_pair) {
             this.sig = undefined;
             this.c_i = undefined;
 
-            this.smList = {};
-            this.csmp = undefined;
             this.secret = undefined;
 
+            this.smList = {};
+            this.csmp = undefined;
+
             for (var i = 0; i < this.room.users.length; i++){
-                this.smList[this.room.users[i]] = new SMP(this, settings);
+                this.smList[this.room.users[i]] = new SMP($_,this, settings);
             }
 
             // OldBlue buffers
@@ -643,45 +642,6 @@ exports.main = function($_, time, key_pair) {
             // OldBlue ends
         };
 
-//////////////////////////////////////////////////////////////////////Непонятно зачем нужные функции
-// this.generateKey = (pswd) => {
-//     if ((longterm !== undefined) && (client.whitelist_key_flag_encrypt)){
-//         client.whitelist_keys = client.context.decrypt_array(client.whitelist_keys, longterm);
-//         client.whitelist_key_flag_encrypt = false;
-//     }
-
-//     let long_pair;
-//     long_pair = generateExpPair(key_length);
-//     var encrPr = this.encryptMessageByPswd(long_pair[0].toString(), pswd);
-//     var encrPub = this.encryptMessageByPswd(long_pair[1].toString(), pswd);
-//     var pair = [encrPr, encrPub];
-//     return pair;
-// };
-
-// this.setPassword = (pswd, pub, priv) => {
-//     let d_pub = this.decryptMessageByPswd(pub, pswd);
-//     let d_priv = this.decryptMessageByPswd(priv, pswd);
-//     let big_int_pub = new BigInteger(d_pub);
-//     let big_int_priv = new BigInteger(d_priv);
-//     if(verifyPair(big_int_pub, big_int_priv)) {
-//         longterm = big_int_priv;
-//         pub_longterm = big_int_pub;
-//         ready_to_mpotr = true;
-//     }
-
-//     //decrypt whitelist_keys
-//     if (client.whitelist_key_flag_encrypt){
-//         client.whitelist_keys = client.context.decrypt_array(client.whitelist_keys, longterm);
-//         client.whitelist_key_flag_encrypt = false;
-//     }
-// };
-
-// this.getPubKey = () => {
-//   return pub_longterm;
-// };
-/////////////////////////////////////////////////////////////////////
-
-
         this.deliverMessage = (msg) => {
             let text = this.decryptMessage(msg["data"], msg["key_id"]);
 
@@ -842,6 +802,8 @@ exports.main = function($_, time, key_pair) {
             $_.ee.emitEvent($_.EVENTS.MPOTR_SHUTDOWN_START);
             $_.ee.emitEvent($_.EVENTS.BLOCK_CHAT);
 
+            //this.stopLocal();
+
             this.sendShutdown();
         };
 
@@ -857,6 +819,7 @@ exports.main = function($_, time, key_pair) {
             authenticationPhase.then(() => {
                 console.log('Success!');
             }).catch((err) => {
+                //alert(err);
                 console.log(err);
             });
 
@@ -866,21 +829,15 @@ exports.main = function($_, time, key_pair) {
         // Change status on start of chat
         $_.ee.addListener($_.EVENTS.MPOTR_START, () => {
             this.status = $_.STATUS.MPOTR;
-//////////////////////////////////////////////////////////////////
-            // SMP available after mpotr starts
-            // for (let i = 0; i < this.client.connList.length; ++i) {
-            //     let friend = this.client.connList[i].peer;
-            //     let $test = $("[id='sm_status_" + friend + "']");
-
-            //     if (this.client.whitelist_keys.indexOf(this.longtermPubKeys[friend].toString(16)) !== -1) {
-            //         $test.prop("className", "btn-warning btn-block");
-            //         $test.text('OK');
-            //         $test.prop("disabled", false);
-            //     } else {
-            //         $test.prop("className", "btn-danger btn-block");
-            //         $test.prop("disabled", false);
-            //     }
-            // }
+            //SMP available after mpotr starts
+            for(let i = 0; i < this.room.users.length; i++) {
+                let friend = this.room.users[i];
+                if (chat.validUsers.has(friend) && (chat.validUsers.get(friend) === this.longtermPubKeys[friend]) ){
+                    //сделать зелёненьким
+                } else {
+                    //сделать красненьким
+                }
+            }
         });
 
         // Reset context on chat shutdown
@@ -893,6 +850,7 @@ exports.main = function($_, time, key_pair) {
         $_.ee.addListener($_.MSG.MPOTR_INIT, this.checkStatus([$_.STATUS.UNENCRYPTED, $_.STATUS.MPOTR], (data) => {
             //if(data.room = this.room.id)
                 this.mpOTRInit();
+
         }));
 
         $_.ee.addListener($_.MSG.MPOTR_CHAT, this.checkStatus([$_.STATUS.MPOTR], (data) => {
@@ -956,6 +914,217 @@ exports.main = function($_, time, key_pair) {
                 console.log("mpOTRContext reset");
             }
         }));
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    	$_.ee.addListener($_.MSG.CSMP_RESULT, this.checkStatus([$_.STATUS.MPOTR], (data) => {
+        	// if (!check_sender(data["data"]["from"])){
+        	// 	return;
+        	// }
+            if (!this.checkSig(data, data["data"]["from"])) {
+                alert("Signature check fail");
+                return;
+            }
+            this.csmp.handleMessage(data['data']['from'], data['data']['results']);
+        }));
+
+        $_.ee.addListener($_.MSG.CSMP_INIT, this.checkStatus([$_.STATUS.MPOTR], (data) => {
+            if (this.csmp === undefined){
+                this.csmp = new CSMP($_, this);
+                this.csmp.init();
+            }
+            if (this.csmp.choose_aim()){
+                this.smp_start(this.csmp.aim, 1, 0);
+            } else {
+                this.csmp.sendResults();
+            }
+        }));
+
+        $_.ee.addListener($_.MSG.SMP_STEP1, this.checkStatus([$_.STATUS.MPOTR], (data) => {
+            console.warn("$_.MSG.SMP_STEP1");
+            // if (!check_sender(data["data"]["from"])){
+            // 	return;
+            // }
+            console.log(chat, data, this.csmp, this.smList);
+
+            if (chat.id === data["data"]["to"]){
+                if (!this.checkSig(data, data["data"]["from"])) {
+                    alert("Signature check fail");
+                    return;
+                }
+                var msg = data['data'];
+                // To accept SMP or not
+                if (this.csmp.aim === msg["from"]){
+                    if (chat.id < msg["from"] && (this.smList[this.csmp.aim].nextExpected === "SMP_EXPECT3"
+                        || this.smList[msg["from"]].nextExpected === "SMP_EXPECT1" )){ 
+                        this.smp_start(msg["from"], 0, msg["data"]);
+                        return;
+                    }
+                } else{
+                    this.smp_start(msg["from"], 0, msg["data"]);
+                }
+            }
+        }));
+
+        $_.ee.addListener($_.MSG.SMP_STEP2, this.checkStatus([$_.STATUS.MPOTR], (data) => {
+            // if (!check_sender(data["data"]["from"])){
+            // 	return;
+            // }
+            if (chat.id === data["data"]["to"]){
+                if (!this.checkSig(data, data["data"]["from"])) {
+                    alert("Signature check fail");
+                    return;
+                }
+                let msg = data["data"];
+                if (this.smList[msg["from"]].nextExpected !== "SMP_EXPECT3")
+                    {alert("receive wrong step "+this.smList[msg["from"]].nextExpected + " expected " + "SMP_EXPECT3"); return ;}
+                this.smList[msg["from"]].smp_auth(msg["data"], 3);
+            }
+        }));
+
+        $_.ee.addListener($_.MSG.SMP_STEP3, this.checkStatus([$_.STATUS.MPOTR], (data) => {
+            // if (!check_sender(data["data"]["from"])){
+            // 	return;
+            // }
+            if (chat.id === data["data"]["to"]){
+                if (!this.checkSig(data, data["data"]["from"])) {
+                    alert("Signature check fail");
+                    return;
+                }
+                let msg = data["data"];
+                if (this.smList[msg["from"]].nextExpected !== "SMP_EXPECT4")
+                    {alert("receive wrong step " + this.smList[msg["from"]].nextExpected + " expected " + "SMP_EXPECT4"); return ;}
+                this.smList[msg["from"]].smp_auth(msg["data"], 4);
+            }
+        }));
+
+        $_.ee.addListener($_.MSG.SMP_STEP4, this.checkStatus([$_.STATUS.MPOTR], (data) => {
+            // if (!check_sender(data["data"]["from"])){
+            // 	return;
+            // }
+            if (chat.id === data["data"]["to"]){
+                if (!this.checkSig(data, data["data"]["from"])) {
+                    alert("Signature check fail");
+                    return;
+                }
+                let msg = data["data"];
+                if (this.smList[msg["from"]].nextExpected !== "SMP_EXPECT5") {
+                    alert("receive wrong step "+this.smList[msg["from"]].nextExpected + "expected" + "SMP_EXPECT5");
+                    return ;
+                }
+                this.smList[msg["from"]].smp_auth(msg["data"], 5);
+            }
+        }));
+
+
+        /**
+         * Init SMP, Ask to enter a secret 
+         * @param {string} friend person we wanna ask
+         * @param {Integer} init 1 if send, 0 if respond
+         * @param input Optional the letter Bob receives on first step
+         */
+        this.smp_start = function(friend, init, input) {
+        
+        	if (this.secret === undefined){
+        		this.secret = prompt('Пароль', '');
+
+        	}
+        	if (this.csmp === undefined){
+        		this.csmp = new CSMP($_, this);
+        		this.csmp.init();
+        	}
+        	this.csmp.result[friend]= $_.CSMP_RESULTS.IN_PROCESS;
+        	if (init === 1){
+        		this.csmp.status = $_.CSMP_STATUS.CHECKING;
+        	}
+        	this.smList[friend].smpInit(this.secret, friend, init, input);
+
+        }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
         this.InitAuthenticationPhase = function () {
             let currentRound = 1;
@@ -1313,37 +1482,6 @@ exports.main = function($_, time, key_pair) {
                 break;
             }
         }, 3000);
-
-        /**
-         * encrypt elements of whitelist_keys with private key
-         * @param array
-         * @return a
-         */
-        this.encrypt_array= function(array){
-            let a = [];
-            let key = sha256.hex(this.myLongPrivKey.toString()).slice(0, 32);
-
-            for (let i=0; i < array.length; ++i){
-                a[i] = cryptico.encryptAESCBC(array[i], key);
-            }
-            return a;
-        };
-
-        /**
-         * decrypt elements of whitelist_keys with private key
-         * @param array
-         * @param priv_key
-         * @return a
-         */
-        this.decrypt_array= function(array, priv_key){
-            let a = [];
-            let key = sha256.hex(priv_key.toString()).slice(0, 32);
-
-            for (let i=0; i < array.length; ++i){
-                a[i] = cryptico.decryptAESCBC(array[i], key);
-            }
-            return a;
-        };
     }
 
     return mpOTRContext;

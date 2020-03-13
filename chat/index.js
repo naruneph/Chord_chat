@@ -1,20 +1,19 @@
-const
-	ChordModule = require("../lib/chord/chord"),
-	ChatModule = require("./chat"),
-	TimeModule = require("./time"),
-	GUIModule = require("./gui"),
-	EventModule = require("./events"),
-	toClipboard = require("./clipboard"),
-	CryptoModule = require("./crypto"),
-	BigInt = require("big-integer");
+const ChordModule = require("../lib/chord/chord"),
+	  ChatModule = require("./chat"),
+	  TimeModule = require("./time"),
+	  GUIModule = require("./gui"),
+	  EventModule = require("./events"),
+	  toClipboard = require("./clipboard"),
+	  CryptoModule = require("./crypto"),
+	  BigInt = require("big-integer"),
+	  CSMP = require("./csmp");
 
 const
 	chat = new ChatModule(),
 	time = new TimeModule(),
-	GUI = new GUIModule(
-		document.getElementsByClassName("chatContainer")[0],
-		chat.getName.bind(chat)
-	),
+	GUI = new GUIModule(document.getElementsByClassName("chatContainer")[0],
+						chat,
+						chat.getName.bind(chat)),
 	E = EventModule();
 
 let CONTEXTS = {},
@@ -26,7 +25,6 @@ let CONTEXTS = {},
 // GLOBAL OBJECTS
 //////////////////////////////////////////////////////////////
 
-
 global.E = E;
 global.GUI = GUI;
 global.EMITTERS = EMITTERS;
@@ -34,8 +32,8 @@ global.chat = chat;
 
 
 //////////////////////////////////////////////////////////////
-
-
+// FUNCTIONS
+//////////////////////////////////////////////////////////////
 
 chat.getGlobalName = function(id) {
 	let query = chord.get(`id${id}`);
@@ -50,10 +48,6 @@ chat.getGlobalName = function(id) {
 	return id;
 };
 
-
-//////////////////////////////////////////////////////////////
-// ADDITIONAL FUNCTIONS
-//////////////////////////////////////////////////////////////
 
 function putMyData() {
 	chord.put(`id${chord.id}`, chat.name);
@@ -72,18 +66,17 @@ function final() {
 	}, 5000);
 }
 
+
 function initialize(id) {
 	GUI.hideDialog();
 
 	GUI.promptSubmit.onclick = () => {
 		let name = GUI.promptText.value;
-
 		GUI.idBlock.innerText = `Мой id: ${id}\nМой ник: ${name}`;
 
 		chat.id = id;
 		chat.name = name;
 		chat.names[id] = name;
-
 		GUI.promptSubmit.onclick = () => {
 			chat.mail = GUI.promptText.value;
 
@@ -109,18 +102,22 @@ function changeMPOTR() {
 		case E.STATUS.AUTH:
 			GUI.mpOTR.disabled = true;
 			GUI.mpOTR.value = "Включение mpOTR...";
+			GUI.authentication.disabled = true;
 			break;
 		case E.STATUS.MPOTR:
 			GUI.mpOTR.value ="Остановить mpOTR";
 			GUI.mpOTR.disabled = false;
+			GUI.authentication.disabled = false;
 			break;
 		case E.STATUS.SHUTDOWN:
 			GUI.mpOTR.disabled = true;
 			GUI.mpOTR.value ="Завершение mpOTR...";
+			GUI.authentication.disabled = true;
 			break;
 		case E.STATUS.UNENCRYPTED:
 			GUI.mpOTR.value ="Включить mpOTR";
 			GUI.mpOTR.disabled = false;
+			GUI.authentication.disabled = true;
 			break;
 	}
 };
@@ -159,9 +156,9 @@ function newRoom(rid, name, status) {
 			chord.publish(rid, E.MSG.BROADCAST, {type: "stopChat", room: rid});
 
 		let $_ = new EventModule(),
-			mpOTR = CryptoModule.main($_, time, [chat.key, chat.key_pub]);
+			mpOTR = CryptoModule.main($_, time);
 
-		CONTEXTS[rid] = new mpOTR(chord, chat.addRoom(rid, name), chat);
+		CONTEXTS[rid] = new mpOTR(chord, chat.addRoom(rid, name));
 
 		EMITTERS[rid] = $_;
 
@@ -176,6 +173,7 @@ function newRoom(rid, name, status) {
 		chord.publish(rid, "-whatIsYourID-", {uid: chord.id, rid: rid});
 
 		GUI.showNotification(`Беседа "${name}" создана`, 3000);
+		
 	}
 }
 
@@ -183,7 +181,6 @@ function quitRoom(rid) {
 	let room = chat.getRoom(rid);
 
 	if(room) {
-
 		let c = CONTEXTS[room.id];
 		if(c.status == E.STATUS.MPOTR) 
 			c.stopChat();
@@ -198,9 +195,7 @@ function quitRoom(rid) {
 		delete EMITTERS[room.id];
 
 		chat.deleteRoom(room.id);
-
 		GUI.buildRooms(chat.rooms);
-
 		GUI.hideDialog();
 	}
 }
@@ -220,6 +215,7 @@ function newPeer(id) {
 		GUI.showNotification(`Пользователь с id ${id} подключен`, 2000);
 	});
 }
+
 
 
 //////////////////////////////////////////////////////////////
@@ -306,10 +302,8 @@ GUI.getRoomsButton.addEventListener("click", function(event) {
 });
 
 GUI.roomHead.addEventListener("input", function(event) {
-	//if(event.code == "Enter") {
-		chat.getRoom().name = GUI.roomHead.value;
-		GUI.buildRooms(chat.rooms);
-	//}
+	chat.getRoom().name = GUI.roomHead.value;
+	GUI.buildRooms(chat.rooms);
 });
 
 GUI.msgSubmit.addEventListener("click", function(event) {
@@ -361,6 +355,39 @@ GUI.mpOTR.addEventListener("click", function(event) {
         }
 	}
 });
+
+GUI.authentication.addEventListener("click", function(event) {
+	GUI.authBlock.style.display = "block";
+});
+
+GUI.authBySMP.addEventListener("click", function(event) {
+	let c = CONTEXTS[chat.getRoom().id];
+	let $_ = EMITTERS[chat.getRoom().id]
+
+	let data = {
+		"type": $_.MSG.CSMP_INIT,
+		"data": 'CSMP_INIT',
+		"room": chat.getRoom().id
+	};
+	chord.publish(chat.getRoom().id, $_.MSG.BROADCAST, data);		
+
+	if (c.csmp === undefined){
+		c.csmp = new CSMP($_, c);
+		c.csmp.init();
+	}
+	c.csmp.stime = +new Date();
+
+	if (c.csmp.choose_aim()){
+		c.smp_start(c.csmp.aim, 1, 0);
+	} else {
+	   c.csmp.sendResults();
+	}
+});
+
+GUI.authByCommunities.addEventListener("click", function(event) {
+	GUI.authBlock.style.display = "none";
+});
+
 
 
 //////////////////////////////////////////////////////////////
@@ -426,7 +453,6 @@ ChordModule.prototype.getWRTCString(function(str) {
 	chord.on(E.MSG.MPOTR_INIT, function(data) {
 		let e = EMITTERS[data[0]];
 
-
 		if(e)
 			e.ee.emitEvent(E.MSG.MPOTR_INIT, [data]);
 	});
@@ -439,9 +465,50 @@ ChordModule.prototype.getWRTCString(function(str) {
 			event.ee.emitEvent(data.type, [data]);
 	});
 
+	chord.on(E.MSG.SMP_STEP1, data => {
+		let e = EMITTERS[data.roomId];
+
+		try {
+			if(e)
+				e.ee.emitEvent(E.MSG.SMP_STEP1, [data]);
+		} catch(err) {
+			console.warn(err, data);
+		}
+
+		console.log(E.MSG.SMP_STEP1, data);
+	});
+
+	chord.on(E.MSG.SMP_STEP2, data => {
+		let e = EMITTERS[data.roomId];
+
+		if(e)
+			e.ee.emitEvent(E.MSG.SMP_STEP2, [data]);
+
+		console.log(E.MSG.SMP_STEP2, data);
+	});
+
+	chord.on(E.MSG.SMP_STEP3, data => {
+		let e = EMITTERS[data.roomId];
+
+		if(e)
+			e.ee.emitEvent(E.MSG.SMP_STEP3, [data]);
+
+		console.log(E.MSG.SMP_STEP3, data);
+	});
+
+	chord.on(E.MSG.SMP_STEP4, data => {
+		let e = EMITTERS[data.roomId];
+
+		if(e)
+			e.ee.emitEvent(E.MSG.SMP_STEP4, [data]);
+
+		console.log(E.MSG.SMP_STEP4, data);
+	});
+
 	chord.on("-newRoom-", function(room) {
 		newRoom(room.rid, room.name, room.status);
 
 		GUI.buildRooms(chat.rooms);
 	});
 });
+

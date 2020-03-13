@@ -11,9 +11,8 @@ class Chat {
 		this.key = null;
 		this.key_pub = null;
 
-		this.whitelist = [];
-		this.whitelist_keys = [];
-		//this.whitelist_key_flag_encrypt = false;
+		this.validUsers = new Map(); // {id: pub_key}
+		this.group_secrets = new Map(); // {rid: secret}
 		
 		this.getGlobalName = function(id) {
 			return id;
@@ -27,6 +26,7 @@ class Chat {
 	deleteRoom(id) {
 		if(this.rooms[id]) {
 			delete this.rooms[id];
+			delete this.group_secrets[id];
 			this.currentRoom = undefined;
 		}
 
@@ -37,6 +37,7 @@ class Chat {
 		return this.rooms[id] = {
 				id: id,
 				name: name,
+				groupPubKey: null,
 				users: [],
 				messages: [],
 				addUser: function(u) {

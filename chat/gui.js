@@ -1,4 +1,4 @@
-function getElems(container, getName = function(id){return id}) {
+function getElems(container, chat, getName = function(id){return id}) {
 	var r = {};
 
 	r.container = container;
@@ -23,6 +23,11 @@ function getElems(container, getName = function(id){return id}) {
 	r.peerAdd = r.mesBlock.getElementsByClassName("peerAdd")[0];
 	r.quitRoom = r.mesBlock.getElementsByClassName("quitRoom")[0];
 	r.mpOTR = r.mesBlock.getElementsByClassName("mpotr")[0];
+	r.authentication = r.mesBlock.getElementsByClassName("authentication")[0];
+
+	r.authBlock = document.getElementById("authBlock");
+	r.authBySMP = r.authBlock.getElementsByTagName("input")[0];
+	r.authByCommunities = r.authBlock.getElementsByTagName("input")[1];
 
 	r.mngBlock = r.mesBlock.getElementsByClassName("chatMngBlock")[0];
 	r.msgText = r.mngBlock.getElementsByTagName("textarea")[0];
@@ -35,7 +40,6 @@ function getElems(container, getName = function(id){return id}) {
 	
 	r.notifBlock = container.getElementsByClassName("chatNotification")[0];
 
-	//r.promptSubmit.addEventListener("click", e => r.promptText.value = "");
 	r.promptCancel.addEventListener("click", e => r.showChat());
 
 	r.showDialog = function() {
@@ -52,12 +56,30 @@ function getElems(container, getName = function(id){return id}) {
 		return `<option>${text}</option>`;
 	};
 
-	r.updateUsers = function(users) {
-		r.uList.innerHTML = r.makeOption("Мои собеседники");
+	r.makeOption_green = function(text) {
+		//console.warn("Green", text);
+		return `<option style="background: #5cb85c; color: #fff;">${text}</option>`;
+	};
 
-		for(var uid of users)
-		r.uList.innerHTML += r.makeOption(`${getName(uid)} (${uid})`);
+	r.makeOption_red = function(text) {
+		//console.warn("Red", text);
+		return `<option style="background: #c93a3a; color: #fff;">${text}</option>`;
+	};
 
+	r.updateUsers = function(users = (chat.getRoom() || {users: []}).users, validUsers = chat.validUsers) {
+		let html = "";
+
+		html = r.makeOption("Мои собеседники");
+
+		for(var uid of users) {
+			if(validUsers instanceof Map && validUsers.has(uid))
+				html += r.makeOption_green(`${getName(uid)} (${uid})`);
+			else
+			html += r.makeOption_red(`${getName(uid)} (${uid})`);
+		}
+
+		r.uList.innerHTML = html;
+		
 		return r.uList;
 	};
 
@@ -107,7 +129,6 @@ function getElems(container, getName = function(id){return id}) {
 	r.buildDialog = function(room) {		
 		this.roomHead.value = room.name;
 		this.mList.innerHTML = this.buildMsgs(room.messages);
-		//console.log(this.mList);
 		this.mList.scrollTop = this.mList.scrollHeight;
 
 		r.updateUsers(room.users);

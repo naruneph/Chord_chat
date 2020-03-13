@@ -8,7 +8,8 @@
  * @property {CSMP_RESULT} result 'GOOD' - if was checked, 'IN_PROCESS' - if is checking, 'BAD' - if check fails, else 'UNKNOWN'
  * @property {map} groups peers of one group have the same name, peers without group has name of himeself, unknown - ''
  **/
-function CSMP(context) {
+
+function CSMP($_, context) {
     this.ntime = 0;
     this.sum = 0;
 
@@ -37,21 +38,20 @@ function CSMP(context) {
             this.groups[peer] = '';
 
             this.result[peer] = $_.CSMP_RESULTS.UNKNOWN;
-            // If peer's keys is already in whitelist, send a message: I remember you, Check me if you don't remember me
+
+        // If peer's keys is already in whitelist, send a message: I remember you, Check me if you don't remember me
             /*if (this.client.whitelist_keys.indexOf(this.context.longtermPubKeys[peer].toString(16)) !== -1){
                 this.result[peer] = $_.CSMP_RESULTS.GOOD;
                 this.groups[peer] = this.client.peer.id;
                 this.sendMes(peer, $_.MSG.CSMP_REMEMBER);
                 this.amount_unknown -= 1;
                 this.checked_by_me.push(peer);
-                }*/ //  todo if we need whitelist, return this
+                }*/
         }
-
         this.circle.sort();
         var me = this.circle.indexOf(this.context.chord.id);
         this.circle = this.circle.splice(me + 1).concat(this.circle);
         this.circle.pop();
-
     };
 
     /**
@@ -167,7 +167,7 @@ function CSMP(context) {
                         if (this.result[peer] === $_.CSMP_RESULTS.UNKNOWN) {
                             this.result[peer] = $_.CSMP_RESULTS.GOOD;
                             this.groups[peer] = this.context.chord.id;
-                            this.context.smList[peer].button_good(peer);
+                            //this.context.smList[peer].button_good(peer);
                             this.amount_unknown -= 1;
 
                             if (this.mail[peer] !== undefined) {
@@ -190,7 +190,7 @@ function CSMP(context) {
                         if (this.result[peer] === $_.CSMP_RESULTS.UNKNOWN) {
                             this.result[peer] = $_.CSMP_RESULTS.BAD;
                             this.groups[peer] = results['bad'];
-                            this.context.smList[peer].button_bad(peer);
+                            //this.context.smList[peer].button_bad(peer);
                             this.amount_unknown -= 1;
 
                             if (this.mail[peer] !== undefined) {
@@ -218,7 +218,7 @@ function CSMP(context) {
                             this.list_to_check[from].delete(peer);
                             this.result[from] = $_.CSMP_RESULTS.BAD;
                             this.groups[from] = this.groups[peer];
-                            this.context.smList[from].button_bad(from);
+                            //this.context.smList[from].button_bad(from);
                             this.amount_unknown -= 1;
                         }
 
