@@ -24,10 +24,12 @@ function getElems(container, chat, getName = function(id){return id}) {
 	r.quitRoom = r.mesBlock.getElementsByClassName("quitRoom")[0];
 	r.mpOTR = r.mesBlock.getElementsByClassName("mpotr")[0];
 	r.authentication = r.mesBlock.getElementsByClassName("authentication")[0];
+	r.ccegk = r.mesBlock.getElementsByClassName("ccegk")[0];
 
 	r.authBlock = document.getElementById("authBlock");
 	r.authBySMP = r.authBlock.getElementsByTagName("input")[0];
 	r.authByCommunities = r.authBlock.getElementsByTagName("input")[1];
+	r.authCancel = r.authBlock.getElementsByTagName("input")[2];
 
 	r.mngBlock = r.mesBlock.getElementsByClassName("chatMngBlock")[0];
 	r.msgText = r.mngBlock.getElementsByTagName("textarea")[0];
@@ -41,6 +43,7 @@ function getElems(container, chat, getName = function(id){return id}) {
 	r.notifBlock = container.getElementsByClassName("chatNotification")[0];
 
 	r.promptCancel.addEventListener("click", e => r.showChat());
+	r.authCancel.addEventListener("click", e => {r.authBlock.style.display = "none";});
 
 	r.showDialog = function() {
 		r.mesBlock.style.left = "50%";
@@ -57,12 +60,10 @@ function getElems(container, chat, getName = function(id){return id}) {
 	};
 
 	r.makeOption_green = function(text) {
-		//console.warn("Green", text);
 		return `<option style="background: #5cb85c; color: #fff;">${text}</option>`;
 	};
 
 	r.makeOption_red = function(text) {
-		//console.warn("Red", text);
 		return `<option style="background: #c93a3a; color: #fff;">${text}</option>`;
 	};
 

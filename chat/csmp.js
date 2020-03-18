@@ -39,14 +39,6 @@ function CSMP($_, context) {
 
             this.result[peer] = $_.CSMP_RESULTS.UNKNOWN;
 
-        // If peer's keys is already in whitelist, send a message: I remember you, Check me if you don't remember me
-            /*if (this.client.whitelist_keys.indexOf(this.context.longtermPubKeys[peer].toString(16)) !== -1){
-                this.result[peer] = $_.CSMP_RESULTS.GOOD;
-                this.groups[peer] = this.client.peer.id;
-                this.sendMes(peer, $_.MSG.CSMP_REMEMBER);
-                this.amount_unknown -= 1;
-                this.checked_by_me.push(peer);
-                }*/
         }
         this.circle.sort();
         var me = this.circle.indexOf(this.context.chord.id);
@@ -77,6 +69,8 @@ function CSMP($_, context) {
             console.log("info", (this.ftime - this.stime).toString());
             this.sum += this.ftime - this.stime;
             this.stime = 0;
+
+            E.ee.emitEvent(E.EVENTS.AUTH_FINISH, [this.context.room]);
             return 0;
         }
 
@@ -97,6 +91,8 @@ function CSMP($_, context) {
 
                 if (this.result[this.circle[i]] === $_.CSMP_RESULTS.GOOD) {
                     this.status = $_.CSMP_STATUS.DONE;
+                    E.ee.emitEvent(E.EVENTS.AUTH_FINISH, [this.context.room]);
+
                     return 0;
                 }
 
@@ -119,10 +115,10 @@ function CSMP($_, context) {
 
         for (var i = 0; i < this.circle.length; i++) {
 
-            if (this.result[this.circle[i]] === $_.CSMP_RESULTS.GOOD) {//&& this.checked_by_me.indexOf(this.circle[i])){ //todo send only check by me?
+            if (this.result[this.circle[i]] === $_.CSMP_RESULTS.GOOD) {
                 good.push(this.circle[i]);
             }
-            if (this.result[this.circle[i]] === $_.CSMP_RESULTS.BAD) {// && this.checked_by_me.indexOf(this.circle[i])){
+            if (this.result[this.circle[i]] === $_.CSMP_RESULTS.BAD) {
                 bad.push(this.circle[i]);
             }
         }
@@ -167,7 +163,7 @@ function CSMP($_, context) {
                         if (this.result[peer] === $_.CSMP_RESULTS.UNKNOWN) {
                             this.result[peer] = $_.CSMP_RESULTS.GOOD;
                             this.groups[peer] = this.context.chord.id;
-                            //this.context.smList[peer].button_good(peer);
+                            
                             this.amount_unknown -= 1;
 
                             if (this.mail[peer] !== undefined) {
@@ -190,7 +186,7 @@ function CSMP($_, context) {
                         if (this.result[peer] === $_.CSMP_RESULTS.UNKNOWN) {
                             this.result[peer] = $_.CSMP_RESULTS.BAD;
                             this.groups[peer] = results['bad'];
-                            //this.context.smList[peer].button_bad(peer);
+                            
                             this.amount_unknown -= 1;
 
                             if (this.mail[peer] !== undefined) {
@@ -207,7 +203,6 @@ function CSMP($_, context) {
 
             case $_.CSMP_RESULTS.BAD_NOT_SURE:
             case $_.CSMP_RESULTS.BAD:
-                //this.groups[from] = from; // just in case
 
                 for (var i = 0; i < results['good'].length; i++) {
                     peer = good[i];
@@ -218,7 +213,7 @@ function CSMP($_, context) {
                             this.list_to_check[from].delete(peer);
                             this.result[from] = $_.CSMP_RESULTS.BAD;
                             this.groups[from] = this.groups[peer];
-                            //this.context.smList[from].button_bad(from);
+
                             this.amount_unknown -= 1;
                         }
 

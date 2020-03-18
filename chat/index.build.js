@@ -23121,6 +23121,249 @@ exports.createContext = Script.createContext = function (context) {
 };
 
 },{}],159:[function(require,module,exports){
+function Tree (id, value, left, right) {
+    this.id = id || null; 
+    this.value = value || null;
+
+    this.left = left || null;
+    this.right = right || null;
+
+    this.leaderID = function(){
+        let t = this;
+        while (t.right){
+            t = t.right;
+        }
+        return t.id;
+    }; 
+
+    this.leavesInfo = function() {
+       var output = new Map();
+       searchLeaves(this, output);
+       return output;
+    };
+
+    this.fillLeaves = function(idList, bsList){
+        var input = new Map();
+        for(var i = 0; i < idList.length; i++){
+            input.set(idList[i], bsList[i]);
+        }
+        fillLeaves (this, input);
+    };
+ 
+}
+
+function searchLeaves (tree, output) {
+    if(tree.left) {
+        searchLeaves(tree.left, output);
+    }
+       
+    if(!tree.left && !tree.right){
+        output.set(tree.id, tree.value);
+    }
+
+    if(tree.right) {
+        searchLeaves(tree.right, output);
+    }
+    
+}
+
+function fillLeaves (tree, input){
+    if(tree.left) {
+        fillLeaves(tree.left, input);
+    }
+
+    if(!tree.left && !tree.right){
+        tree.value =  input.get(tree.id);
+    }
+
+    if(tree.right) {
+        fillLeaves(tree.right, input);
+    }
+    
+}
+
+
+function CCEGK ($_, context, settings) {
+
+
+    const MODULUS = new BigInteger("FFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD129024E088A67CC74020BBEA63B139B22514A08798E3404DDEF9519B3CD3A431B302B0A6DF25F14374FE1356D6D51C245E485B576625E7EC6F44C42E9A637ED6B0BFF5CB6F406B7EDEE386BFB5A899FA5AE9F24117C4B1FE649286651ECE45B3DC2007CB8A163BF0598DA48361C55D39A69163FA8FD24CF5F83655D23DCA3AD961C62F356208552BB9ED529077096966D670C354E4ABC9804F1746C08CA237327FFFFFFFFFFFFFFFF", 16),
+          //ORDER =   new BigInteger("7FFFFFFFFFFFFFFFE487ED5110B4611A62633145C06E0E68948127044533E63A0105DF531D89CD9128A5043CC71A026EF7CA8CD9E69D218D98158536F92F8A1BA7F09AB6B6A8E122F242DABB312F3F637A262174D31BF6B585FFAE5B7A035BF6F71C35FDAD44CFD2D74F9208BE258FF324943328F6722D9EE1003E5C50B1DF82CC6D241B0E2AE9CD348B1FD47E9267AFC1B2AE91EE51D6CB0E3179AB1042A95DCF6A9483B84B4B36B3861AA7255E4C0278BA36046511B993FFFFFFFFFFFFFFFF", 16),
+          GENERATOR = new BigInteger("2", 16);
+
+    this.randomExponent = function(){
+        return settings.generateNumber().mod(MODULUS);
+    } 
+
+    this.init = function() {
+        this.context = context;
+        this.myID = chat.id;
+        this.secret = this.randomExponent();
+        this.group = null;
+        this.level = 0;
+        this.mail = new Map();
+
+        this.subgroups = [];
+        var members = ([this.myID].concat(context.room.users)).sort();
+        for (var i = 0; i < members.length; i++){
+            this.subgroups.push(new Tree(members[i]));
+        }
+
+        this.myIndex = members.indexOf(this.myID);
+        this.subgroups[this.myIndex].value = this.secret;
+
+        var siblingGroupIdx = this.findSiblingGroupIndex();
+
+        if(this.subgroups[siblingGroupIdx]){
+            this.createAndSendMsg(this.subgroups[siblingGroupIdx]);
+        } else {
+            while(this.subgroups.length % 2 !== 0){
+                var tempList = [];
+                for (var i = 0; i < this.subgroups.length; i = i + 2){
+                    if(i + 1 < this.subgroups.length){
+                        tempList.push(new Tree(null, null, this.subgroups[i], this.subgroups[i+1]));
+                    } else {
+                        tempList.push(this.subgroups[i]);
+                    }
+                }                                                
+                this.subgroups = tempList;                      
+                this.level++;
+                this.myIndex = this.myIndex / 2; 
+            }
+
+            siblingGroupIdx = this.findSiblingGroupIndex();
+            this.createAndSendMsg(this.subgroups[siblingGroupIdx]);
+        }    
+    };
+
+
+    this.handleMessage = function(from, blindedSecret, idList, bsList, level){
+
+        if (this.level === level){
+
+            var siblingGroupIdx = this.findSiblingGroupIndex();               
+            if(this.subgroups[siblingGroupIdx].leaderID() !== from){ 
+                alert("Wrong CCEGK message");
+            } 
+            this.subgroups[siblingGroupIdx].value = blindedSecret; 
+            this.subgroups[siblingGroupIdx].fillLeaves(idList, bsList); 
+ 
+            var tempList = []; 
+            for (var i = 0; i < this.subgroups.length; i = i + 2){
+                if(i + 1 < this.subgroups.length){
+                    if(this.myIndex === i  || this.myIndex === i+1){
+                        let val = (this.subgroups[siblingGroupIdx].value).modPow(this.subgroups[this.myIndex].value, MODULUS);
+                        tempList.push(new Tree(null, val, this.subgroups[i], this.subgroups[i+1]));
+                    } else {
+                        tempList.push(new Tree(null, null, this.subgroups[i], this.subgroups[i+1]));
+                    }
+                } else {
+                    tempList.push(this.subgroups[i]);
+                }                                 
+            }
+            this.subgroups = tempList; 
+
+            if (this.myIndex % 2 === 0){
+                this.myIndex = this.myIndex / 2;
+            } else {
+                this.myIndex = (this.myIndex - 1)  / 2;   
+            }
+
+            this.level++;
+
+            if (this.subgroups.length === 1){ 
+                this.group = this.subgroups[0];
+                // событие: выработан общий секрет: ФИНИШ
+            } else {
+                var nextSiblingGroupIdx = this.findSiblingGroupIndex();
+
+                if (this.subgroups[nextSiblingGroupIdx]){
+                    if(this.subgroups[this.myIndex].leaderID() === this.myID){
+                        this.createAndSendMsg(this.subgroups[nextSiblingGroupIdx]);
+                    }
+                } else {
+                    while(this.subgroups.length % 2 !== 0){
+                        var tempList = [];
+                        for (var i = 0; i < this.subgroups.length; i = i + 2){
+                            if(i + 1 < this.subgroups.length){
+                                tempList.push(new Tree(null, null, this.subgroups[i], this.subgroups[i+1]));
+                            } else {
+                                tempList.push(this.subgroups[i]);
+                            }
+                        }
+                        this.subgroups = tempList;
+                        this.level++;
+                        this.myIndex = this.myIndex / 2; 
+                    }
+
+                    nextSiblingGroupIdx = this.findSiblingGroupIndex();
+                    if(this.subgroups[this.myIndex].leaderID() === this.myID){
+                        this.createAndSendMsg(this.subgroups[nextSiblingGroupIdx]);
+                    }
+
+                }       
+            }
+
+        } else {
+            this.mail.set(level, [from, blindedSecret, idList, bsList]); 
+        }
+
+        if (this.mail.has(this.level)) {
+            let msg = this.mail.get(this.level);
+            this.mail.delete(this.level);
+            let from = msg[0];
+            let blindedSecret = msg[1];
+            let idList = msg[2];
+            let bsList = msg[3];
+            
+            this.handleMessage(from, blindedSecret, idList, bsList, this.level);
+
+        }
+    };
+
+    this.createAndSendMsg = function(target){
+        var leavesInfo = this.subgroups[this.myIndex].leavesInfo();
+
+        var idList = Array.from(leavesInfo.keys());
+
+        var bsList = [];
+        Array.from(leavesInfo.values()).forEach(element => bsList.push(element.toString(16)));
+        bsList[idList.indexOf(this.myID)] = GENERATOR.modPow(this.secret, MODULUS).toString(16); 
+        
+        var msg = {
+            "type": $_.MSG.CCEGK,
+            "data": {
+                from: this.myID,
+                blindedSecret: GENERATOR.modPow(this.subgroups[this.myIndex].value, MODULUS).toString(16),
+                idList: idList,
+                bsList: bsList,
+                level: this.level.toString()
+            },
+            "room": this.context.room.id
+        };
+
+        this.context.signMessage(msg);
+
+        Array.from(target.leavesInfo().keys()).forEach(user =>  
+            this.context.chord.send(user, msg.type, msg)
+        );
+        
+    };
+
+    this.findSiblingGroupIndex = function(){
+        var sibling = null;
+        if ((this.myIndex % 2 === 0) && this.subgroups[this.myIndex + 1]){  
+            sibling = this.myIndex + 1;
+        } else if ((this.myIndex % 2 === 1)){  
+            sibling = this.myIndex - 1;
+        }
+        return sibling;
+    };
+
+
+}
+
+module.exports = CCEGK;
+},{}],160:[function(require,module,exports){
 class Chat {
 	constructor(id, name = id, mail = name) {
 		this.currentRoom = "";
@@ -23135,7 +23378,6 @@ class Chat {
 		this.key_pub = null;
 
 		this.validUsers = new Map(); // {id: pub_key}
-		this.group_secrets = new Map(); // {rid: secret}
 		
 		this.getGlobalName = function(id) {
 			return id;
@@ -23149,7 +23391,6 @@ class Chat {
 	deleteRoom(id) {
 		if(this.rooms[id]) {
 			delete this.rooms[id];
-			delete this.group_secrets[id];
 			this.currentRoom = undefined;
 		}
 
@@ -23247,7 +23488,7 @@ class Chat {
 };
 
 module.exports = Chat;
-},{}],160:[function(require,module,exports){
+},{}],161:[function(require,module,exports){
 function fallbackCopyTextToClipboard(text, err, success) {
 	var textArea = document.createElement("textarea");
 	textArea.value = text;
@@ -23280,10 +23521,11 @@ function copyTextToClipboard(text, err = function(){}, success = function(){}) {
 }
 
 module.exports = copyTextToClipboard;
-},{}],161:[function(require,module,exports){
+},{}],162:[function(require,module,exports){
 const Settings = require("./settings"),
       SMP = require("./smp"),
-      CSMP = require("./csmp");
+      CSMP = require("./csmp"),
+      CCEGK = require("./ccegk");
 const settings = new Settings();
 
 exports.settings = settings;
@@ -23739,13 +23981,13 @@ exports.main = function($_, time) {
             this.c_i = undefined;
 
             this.secret = undefined;
-
             this.smList = {};
             this.csmp = undefined;
-
             for (var i = 0; i < this.room.users.length; i++){
                 this.smList[this.room.users[i]] = new SMP($_,this, settings);
             }
+
+            this.ccegk = undefined;
 
             // OldBlue buffers
             this.frontier = [];
@@ -24113,59 +24355,44 @@ exports.main = function($_, time) {
         $_.ee.addListener($_.EVENTS.MPOTR_START, () => {
             this.status = $_.STATUS.MPOTR;
             //SMP available after mpotr starts
-            for(let i = 0; i < this.room.users.length; i++) {
-                let friend = this.room.users[i];
-                if (chat.validUsers.has(friend) && (chat.validUsers.get(friend) === this.longtermPubKeys[friend]) ){
-                    //сделать зелёненьким
-                } else {
-                    //сделать красненьким
-                }
-            }
         });
 
         // Reset context on chat shutdown
         $_.ee.addListener($_.EVENTS.MPOTR_SHUTDOWN_FINISH, () => {
-            //if(data.room = this.room.id)
             this.reset();
         });
 
         // Init received! Checking current chat status and starting new one!
         $_.ee.addListener($_.MSG.MPOTR_INIT, this.checkStatus([$_.STATUS.UNENCRYPTED, $_.STATUS.MPOTR], (data) => {
-            //if(data.room = this.room.id)
                 this.mpOTRInit();
 
         }));
 
         $_.ee.addListener($_.MSG.MPOTR_CHAT, this.checkStatus([$_.STATUS.MPOTR], (data) => {
-            //if(data.room = this.room.id)
                 this.receiveMessage(data);
         }));
 
         $_.ee.addListener($_.MSG.MPOTR_SHUTDOWN, this.checkStatus([$_.STATUS.MPOTR, $_.STATUS.SHUTDOWN], (data) => {
-            //if(data.room = this.room.id)
                 this.receiveMessage(data);
-            //this.stopLocal();
         }));
 
         $_.ee.addListener("stopChat", this.checkStatus([$_.STATUS.MPOTR], (data) => {
-            //this.receiveMessage(data);
-            //if(data.room = this.room.id)
                 this.stopChat();
         }));
 
         $_.ee.addListener($_.MSG.MPOTR_LOST_MSG, this.checkStatus([$_.STATUS.MPOTR], (data) => {
-            //if(data.room = this.room.id) {
-                if (!this.checkSig(data, data["from"])) {
-                    alert("Signature check fail");
-                    return;
-                }
 
-                let response = this.deliveryResponse(data);
+            if (!this.checkSig(data, data["from"])) {
+                alert("Signature check fail");
+                return;
+            }
 
-                if (response) {
-                    conn.send(response);
-                }
-            //}
+            let response = this.deliveryResponse(data);
+
+            if (response) {
+                conn.send(response);
+            }
+            
         }));
 
         this.amILeader = function() {
@@ -24215,28 +24442,6 @@ exports.main = function($_, time) {
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
     	$_.ee.addListener($_.MSG.CSMP_RESULT, this.checkStatus([$_.STATUS.MPOTR], (data) => {
         	// if (!check_sender(data["data"]["from"])){
         	// 	return;
@@ -24261,12 +24466,7 @@ exports.main = function($_, time) {
         }));
 
         $_.ee.addListener($_.MSG.SMP_STEP1, this.checkStatus([$_.STATUS.MPOTR], (data) => {
-            console.warn("$_.MSG.SMP_STEP1");
-            // if (!check_sender(data["data"]["from"])){
-            // 	return;
-            // }
-            console.log(chat, data, this.csmp, this.smList);
-
+            
             if (chat.id === data["data"]["to"]){
                 if (!this.checkSig(data, data["data"]["from"])) {
                     alert("Signature check fail");
@@ -24287,9 +24487,7 @@ exports.main = function($_, time) {
         }));
 
         $_.ee.addListener($_.MSG.SMP_STEP2, this.checkStatus([$_.STATUS.MPOTR], (data) => {
-            // if (!check_sender(data["data"]["from"])){
-            // 	return;
-            // }
+            
             if (chat.id === data["data"]["to"]){
                 if (!this.checkSig(data, data["data"]["from"])) {
                     alert("Signature check fail");
@@ -24303,9 +24501,7 @@ exports.main = function($_, time) {
         }));
 
         $_.ee.addListener($_.MSG.SMP_STEP3, this.checkStatus([$_.STATUS.MPOTR], (data) => {
-            // if (!check_sender(data["data"]["from"])){
-            // 	return;
-            // }
+            
             if (chat.id === data["data"]["to"]){
                 if (!this.checkSig(data, data["data"]["from"])) {
                     alert("Signature check fail");
@@ -24319,9 +24515,7 @@ exports.main = function($_, time) {
         }));
 
         $_.ee.addListener($_.MSG.SMP_STEP4, this.checkStatus([$_.STATUS.MPOTR], (data) => {
-            // if (!check_sender(data["data"]["from"])){
-            // 	return;
-            // }
+            
             if (chat.id === data["data"]["to"]){
                 if (!this.checkSig(data, data["data"]["from"])) {
                     alert("Signature check fail");
@@ -24361,6 +24555,12 @@ exports.main = function($_, time) {
 
         }
 
+    
+
+
+
+
+        
 
 
 
@@ -24372,6 +24572,34 @@ exports.main = function($_, time) {
 
 
 
+
+
+
+        $_.ee.addListener($_.MSG.CCEGK_INIT, this.checkStatus([$_.STATUS.MPOTR], () => {
+            if(this.ccegk === undefined){
+                this.ccegk = new CCEGK($_, this, settings);
+                this.ccegk.init();
+            }
+        }));
+
+        $_.ee.addListener($_.MSG.CCEGK, this.checkStatus([$_.STATUS.MPOTR], (data) => {
+            if (!this.checkSig(data, data["data"]["from"])) {
+                alert("Signature check fail");
+                return;
+            }
+
+            let from = data["data"]["from"];
+            let blindedSecret = new BigInteger(data["data"]["blindedSecret"], 16);
+            let idList = data["data"]["idList"];
+            let bsList = [];
+            for (let i = 0; i < data["data"]["bsList"].length; i++){
+                bsList.push(new BigInteger(data["data"]["bsList"][i], 16));
+            }
+            let level = Number(data["data"]["level"]);
+
+            this.ccegk.handleMessage(from, blindedSecret, idList, bsList, level);
+        }));
+        
 
 
 
@@ -24769,7 +24997,7 @@ exports.main = function($_, time) {
 
     return mpOTRContext;
 };
-},{"./csmp":162,"./settings":166,"./smp":167}],162:[function(require,module,exports){
+},{"./ccegk":159,"./csmp":163,"./settings":167,"./smp":168}],163:[function(require,module,exports){
 /**
  * Circle SMP object
  * @param {Object} context mpOTRContext
@@ -24811,14 +25039,6 @@ function CSMP($_, context) {
 
             this.result[peer] = $_.CSMP_RESULTS.UNKNOWN;
 
-        // If peer's keys is already in whitelist, send a message: I remember you, Check me if you don't remember me
-            /*if (this.client.whitelist_keys.indexOf(this.context.longtermPubKeys[peer].toString(16)) !== -1){
-                this.result[peer] = $_.CSMP_RESULTS.GOOD;
-                this.groups[peer] = this.client.peer.id;
-                this.sendMes(peer, $_.MSG.CSMP_REMEMBER);
-                this.amount_unknown -= 1;
-                this.checked_by_me.push(peer);
-                }*/
         }
         this.circle.sort();
         var me = this.circle.indexOf(this.context.chord.id);
@@ -24849,6 +25069,8 @@ function CSMP($_, context) {
             console.log("info", (this.ftime - this.stime).toString());
             this.sum += this.ftime - this.stime;
             this.stime = 0;
+
+            E.ee.emitEvent(E.EVENTS.AUTH_FINISH, [this.context.room]);
             return 0;
         }
 
@@ -24869,6 +25091,8 @@ function CSMP($_, context) {
 
                 if (this.result[this.circle[i]] === $_.CSMP_RESULTS.GOOD) {
                     this.status = $_.CSMP_STATUS.DONE;
+                    E.ee.emitEvent(E.EVENTS.AUTH_FINISH, [this.context.room]);
+
                     return 0;
                 }
 
@@ -24891,10 +25115,10 @@ function CSMP($_, context) {
 
         for (var i = 0; i < this.circle.length; i++) {
 
-            if (this.result[this.circle[i]] === $_.CSMP_RESULTS.GOOD) {//&& this.checked_by_me.indexOf(this.circle[i])){ //todo send only check by me?
+            if (this.result[this.circle[i]] === $_.CSMP_RESULTS.GOOD) {
                 good.push(this.circle[i]);
             }
-            if (this.result[this.circle[i]] === $_.CSMP_RESULTS.BAD) {// && this.checked_by_me.indexOf(this.circle[i])){
+            if (this.result[this.circle[i]] === $_.CSMP_RESULTS.BAD) {
                 bad.push(this.circle[i]);
             }
         }
@@ -24939,7 +25163,7 @@ function CSMP($_, context) {
                         if (this.result[peer] === $_.CSMP_RESULTS.UNKNOWN) {
                             this.result[peer] = $_.CSMP_RESULTS.GOOD;
                             this.groups[peer] = this.context.chord.id;
-                            //this.context.smList[peer].button_good(peer);
+                            
                             this.amount_unknown -= 1;
 
                             if (this.mail[peer] !== undefined) {
@@ -24962,7 +25186,7 @@ function CSMP($_, context) {
                         if (this.result[peer] === $_.CSMP_RESULTS.UNKNOWN) {
                             this.result[peer] = $_.CSMP_RESULTS.BAD;
                             this.groups[peer] = results['bad'];
-                            //this.context.smList[peer].button_bad(peer);
+                            
                             this.amount_unknown -= 1;
 
                             if (this.mail[peer] !== undefined) {
@@ -24979,7 +25203,6 @@ function CSMP($_, context) {
 
             case $_.CSMP_RESULTS.BAD_NOT_SURE:
             case $_.CSMP_RESULTS.BAD:
-                //this.groups[from] = from; // just in case
 
                 for (var i = 0; i < results['good'].length; i++) {
                     peer = good[i];
@@ -24990,7 +25213,7 @@ function CSMP($_, context) {
                             this.list_to_check[from].delete(peer);
                             this.result[from] = $_.CSMP_RESULTS.BAD;
                             this.groups[from] = this.groups[peer];
-                            //this.context.smList[from].button_bad(from);
+
                             this.amount_unknown -= 1;
                         }
 
@@ -25030,7 +25253,7 @@ function CSMP($_, context) {
 }
 
 module.exports = CSMP;
-},{}],163:[function(require,module,exports){
+},{}],164:[function(require,module,exports){
 var EventEmitter = require("../lib/EventEmitter");
 
 module.exports = function() {
@@ -25059,7 +25282,11 @@ module.exports = function() {
             SMP_STEP2: 'EVENTS.SMP_STEP2',
             SMP_STEP3: 'EVENTS.SMP_STEP3',
             SMP_STEP4: 'EVENTS.SMP_STEP4',
-            CSMP: 'EVENTS.CSMP'
+            CSMP: 'EVENTS.CSMP',
+
+            AUTH_FINISH: 'EVENTS.AUTH_FINISH',
+
+            CCEGK_INIT: 'EVENTS.CCEGK_INIT'
         },
 
         /**
@@ -25083,7 +25310,10 @@ module.exports = function() {
             SMP_STEP1: "MSG.SMP_STEP1",
             SMP_STEP2: "MSG.SMP_STEP2",
             SMP_STEP3: 'MSG.SMP_STEP3',
-            SMP_STEP4: 'MSG.SMP_STEP4'
+            SMP_STEP4: 'MSG.SMP_STEP4',
+
+            CCEGK_INIT: 'MSG.CCEGK_INIT',
+            CCEGK: 'MSG.CCEGK'
         },
 
         /**
@@ -25115,7 +25345,7 @@ module.exports = function() {
         ee: new EventEmitter()
     };
 }
-},{"../lib/EventEmitter":169}],164:[function(require,module,exports){
+},{"../lib/EventEmitter":170}],165:[function(require,module,exports){
 function getElems(container, chat, getName = function(id){return id}) {
 	var r = {};
 
@@ -25142,10 +25372,12 @@ function getElems(container, chat, getName = function(id){return id}) {
 	r.quitRoom = r.mesBlock.getElementsByClassName("quitRoom")[0];
 	r.mpOTR = r.mesBlock.getElementsByClassName("mpotr")[0];
 	r.authentication = r.mesBlock.getElementsByClassName("authentication")[0];
+	r.ccegk = r.mesBlock.getElementsByClassName("ccegk")[0];
 
 	r.authBlock = document.getElementById("authBlock");
 	r.authBySMP = r.authBlock.getElementsByTagName("input")[0];
 	r.authByCommunities = r.authBlock.getElementsByTagName("input")[1];
+	r.authCancel = r.authBlock.getElementsByTagName("input")[2];
 
 	r.mngBlock = r.mesBlock.getElementsByClassName("chatMngBlock")[0];
 	r.msgText = r.mngBlock.getElementsByTagName("textarea")[0];
@@ -25159,6 +25391,7 @@ function getElems(container, chat, getName = function(id){return id}) {
 	r.notifBlock = container.getElementsByClassName("chatNotification")[0];
 
 	r.promptCancel.addEventListener("click", e => r.showChat());
+	r.authCancel.addEventListener("click", e => {r.authBlock.style.display = "none";});
 
 	r.showDialog = function() {
 		r.mesBlock.style.left = "50%";
@@ -25175,12 +25408,10 @@ function getElems(container, chat, getName = function(id){return id}) {
 	};
 
 	r.makeOption_green = function(text) {
-		//console.warn("Green", text);
 		return `<option style="background: #5cb85c; color: #fff;">${text}</option>`;
 	};
 
 	r.makeOption_red = function(text) {
-		//console.warn("Red", text);
 		return `<option style="background: #c93a3a; color: #fff;">${text}</option>`;
 	};
 
@@ -25271,7 +25502,7 @@ function getElems(container, chat, getName = function(id){return id}) {
 }
 
 module.exports = getElems;
-},{}],165:[function(require,module,exports){
+},{}],166:[function(require,module,exports){
 (function (global){
 const ChordModule = require("../lib/chord/chord"),
 	  ChatModule = require("./chat"),
@@ -25281,7 +25512,8 @@ const ChordModule = require("../lib/chord/chord"),
 	  toClipboard = require("./clipboard"),
 	  CryptoModule = require("./crypto"),
 	  BigInt = require("big-integer"),
-	  CSMP = require("./csmp");
+	  CSMP = require("./csmp"),
+	  CCEGK = require("./ccegk");
 
 const
 	chat = new ChatModule(),
@@ -25636,8 +25868,9 @@ GUI.authentication.addEventListener("click", function(event) {
 });
 
 GUI.authBySMP.addEventListener("click", function(event) {
+	GUI.authBlock.style.display = "none";
 	let c = CONTEXTS[chat.getRoom().id];
-	let $_ = EMITTERS[chat.getRoom().id]
+	let $_ = EMITTERS[chat.getRoom().id];
 
 	let data = {
 		"type": $_.MSG.CSMP_INIT,
@@ -25657,11 +25890,32 @@ GUI.authBySMP.addEventListener("click", function(event) {
 	} else {
 	   c.csmp.sendResults();
 	}
+	
 });
 
 GUI.authByCommunities.addEventListener("click", function(event) {
 	GUI.authBlock.style.display = "none";
 });
+
+GUI.ccegk.addEventListener("click", function(event) {
+	GUI.authBlock.style.display = "none";
+
+	let c = CONTEXTS[chat.getRoom().id];
+	let $_ = EMITTERS[chat.getRoom().id];
+
+	let data = {
+		"type": $_.MSG.CCEGK_INIT,
+		"data": 'MSG.CCEGK_INIT',
+		"room": chat.getRoom().id
+	};
+	chord.publish(chat.getRoom().id, $_.MSG.BROADCAST, data);	
+
+	if (c.ccegk === undefined){
+		c.ccegk = new CCEGK($_, c, CryptoModule.settings);
+        c.ccegk.init();
+	}
+});
+
 
 
 
@@ -25742,15 +25996,10 @@ ChordModule.prototype.getWRTCString(function(str) {
 
 	chord.on(E.MSG.SMP_STEP1, data => {
 		let e = EMITTERS[data.roomId];
+		
+		if(e)
+			e.ee.emitEvent(E.MSG.SMP_STEP1, [data]);
 
-		try {
-			if(e)
-				e.ee.emitEvent(E.MSG.SMP_STEP1, [data]);
-		} catch(err) {
-			console.warn(err, data);
-		}
-
-		console.log(E.MSG.SMP_STEP1, data);
 	});
 
 	chord.on(E.MSG.SMP_STEP2, data => {
@@ -25759,7 +26008,6 @@ ChordModule.prototype.getWRTCString(function(str) {
 		if(e)
 			e.ee.emitEvent(E.MSG.SMP_STEP2, [data]);
 
-		console.log(E.MSG.SMP_STEP2, data);
 	});
 
 	chord.on(E.MSG.SMP_STEP3, data => {
@@ -25767,8 +26015,6 @@ ChordModule.prototype.getWRTCString(function(str) {
 
 		if(e)
 			e.ee.emitEvent(E.MSG.SMP_STEP3, [data]);
-
-		console.log(E.MSG.SMP_STEP3, data);
 	});
 
 	chord.on(E.MSG.SMP_STEP4, data => {
@@ -25777,7 +26023,12 @@ ChordModule.prototype.getWRTCString(function(str) {
 		if(e)
 			e.ee.emitEvent(E.MSG.SMP_STEP4, [data]);
 
-		console.log(E.MSG.SMP_STEP4, data);
+	});
+
+	chord.on(E.MSG.CCEGK, data => {
+		let e = EMITTERS[data.room];
+		if(e)
+			e.ee.emitEvent(E.MSG.CCEGK, [data]);
 	});
 
 	chord.on("-newRoom-", function(room) {
@@ -25787,9 +26038,22 @@ ChordModule.prototype.getWRTCString(function(str) {
 	});
 });
 
+//////////////////////////////////////////////////////////////
+///AUTH EVENTS
+//////////////////////////////////////////////////////////////
+
+// E.ee.addListener(E.EVENTS.AUTH_FINISH, (room) => {
+// 
+// 	// for (var i = 0; i < room.users.length; i++){
+// 	// 	if(!chat.validUsers.has(room.users[i])){
+// 	// 		flag = false;
+// 	// 		quitRoom(room.id)
+// 	// 	}
+// 	// }
+// });
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"../lib/chord/chord":170,"./chat":159,"./clipboard":160,"./crypto":161,"./csmp":162,"./events":163,"./gui":164,"./time":168,"big-integer":178}],166:[function(require,module,exports){
+},{"../lib/chord/chord":171,"./ccegk":159,"./chat":160,"./clipboard":161,"./crypto":162,"./csmp":163,"./events":164,"./gui":165,"./time":169,"big-integer":179}],167:[function(require,module,exports){
 class Settings {
 
     constructor(){
@@ -25825,7 +26089,7 @@ class Settings {
 module.exports = Settings;
 
 
-},{}],167:[function(require,module,exports){
+},{}],168:[function(require,module,exports){
 function SMP($_, context, settings) {
 
     let SM_MSG1_LEN = 6; // было 7
@@ -25834,7 +26098,7 @@ function SMP($_, context, settings) {
     let SM_MSG4_LEN = 3;
 
     let SM_MODULUS = new BigInteger("FFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD129024E088A67CC74020BBEA63B139B22514A08798E3404DDEF9519B3CD3A431B302B0A6DF25F14374FE1356D6D51C245E485B576625E7EC6F44C42E9A637ED6B0BFF5CB6F406B7EDEE386BFB5A899FA5AE9F24117C4B1FE649286651ECE45B3DC2007CB8A163BF0598DA48361C55D39A69163FA8FD24CF5F83655D23DCA3AD961C62F356208552BB9ED529077096966D670C354E4ABC9804F1746C08CA237327FFFFFFFFFFFFFFFF", 16);
-    let SM_ORDER = new BigInteger("7FFFFFFFFFFFFFFFE487ED5110B4611A62633145C06E0E68948127044533E63A0105DF531D89CD9128A5043CC71A026EF7CA8CD9E69D218D98158536F92F8A1BA7F09AB6B6A8E122F242DABB312F3F637A262174D31BF6B585FFAE5B7A035BF6F71C35FDAD44CFD2D74F9208BE258FF324943328F6722D9EE1003E5C50B1DF82CC6D241B0E2AE9CD348B1FD47E9267AFC1B2AE91EE51D6CB0E3179AB1042A95DCF6A9483B84B4B36B3861AA7255E4C0278BA36046511B993FFFFFFFFFFFFFFFF", 16);
+    let SM_ORDER =   new BigInteger("7FFFFFFFFFFFFFFFE487ED5110B4611A62633145C06E0E68948127044533E63A0105DF531D89CD9128A5043CC71A026EF7CA8CD9E69D218D98158536F92F8A1BA7F09AB6B6A8E122F242DABB312F3F637A262174D31BF6B585FFAE5B7A035BF6F71C35FDAD44CFD2D74F9208BE258FF324943328F6722D9EE1003E5C50B1DF82CC6D241B0E2AE9CD348B1FD47E9267AFC1B2AE91EE51D6CB0E3179AB1042A95DCF6A9483B84B4B36B3861AA7255E4C0278BA36046511B993FFFFFFFFFFFFFFFF", 16);
     let SM_GENERATOR = "2";
 
     let two = new BigInteger("2",16);
@@ -25863,7 +26127,6 @@ function SMP($_, context, settings) {
     };
 
     this.sendMes = function(msg, type){
-        console.log(this);
         let data = {
             "roomId": this.context.room.id,
             "type": type,
@@ -25912,20 +26175,6 @@ function SMP($_, context, settings) {
         
     };
 
-    //должна делать зелёненьким
-    /*this.button_good = function (peer) {
-        var elem = document.getElementById(`sm_status_${peer}`)
-        //elem.prop("disabled", true);
-        elem.classList.add("status_good");
-    };
-
-    //должна делать красненьким
-    this.button_bad = function (peer) {
-        var elem = document.getElementById(`sm_status_${peer}`)
-        //elem.prop("disabled", true);
-        elem.classList.add("status_bad");
-    }; */
-
     /**
      * For each step send next message, set the next expected one
      * Informs the user about the assumption of smp
@@ -25950,9 +26199,7 @@ function SMP($_, context, settings) {
                 this.sendMes(output[0], $_.MSG.SMP_STEP4);
                 this.nextExpected = "SMP_EXPECT_NO";
                 if(this.sm_prog_state === "OK") {
-                    //
-                    //this.friendID is secure - сделать зелёненьким
-                    //
+
                     if(!chat.validUsers.has(this.friendID)){
                         chat.validUsers.set(this.friendID, this.friend_pubKey);
                     }
@@ -25960,9 +26207,7 @@ function SMP($_, context, settings) {
                     this.context.csmp.result[this.friendID] = $_.CSMP_RESULTS.GOOD;
                     this.context.csmp.groups[this.friendID] = this.myID;
                 } else {
-                    //
-                    //this.friendID is not secure - сделать красненьким
-                    //
+
                     if(chat.validUsers.has(this.friendID) && (chat.validUsers.get(this.friendID) === this.friend_pubKey)){
                         chat.validUsers.delete(this.friendID);
                     }
@@ -25985,15 +26230,16 @@ function SMP($_, context, settings) {
                 this.sm_prog_state = sm_step5(this, input);
                 this.nextExpected = "SMP_EXPECT_NO";
                 if(this.sm_prog_state === "OK") {
-                    //
-                    //this.friendID is secure - сделать зелёненьким
-                    //
+
                     if(!chat.validUsers.has(this.friendID)){
                         chat.validUsers.set(this.friendID, this.friend_pubKey);
                     }
 
                     this.context.csmp.result[this.friendID] = $_.CSMP_RESULTS.GOOD;
                     this.context.csmp.status = $_.CSMP_STATUS.DONE;
+
+                    // E.ee.emitEvent(E.EVENTS.AUTH_FINISH, [this.context.room]);
+
                     this.context.csmp.groups[this.friendID] = this.myID;
                     this.context.csmp.amount_unknown -= 1;
                     this.context.csmp.checked_by_me.push(this.friendID);
@@ -26004,10 +26250,10 @@ function SMP($_, context, settings) {
                     if (this.context.csmp.mail[this.friendID] !== undefined){
                         this.context.csmp.handleMessage(this.friendID, this.context.csmp.mail[this.friendID]);
                     }
+
+                    E.ee.emitEvent(E.EVENTS.AUTH_FINISH, [this.context.room]);
                 } else {
-                    //
-                    //this.friendID is not secure - сделать красненьким
-                    //
+    
                     if(chat.validUsers.has(this.friendID) && (chat.validUsers.get(this.friendID) === this.friend_pubKey)){
                         chat.validUsers.delete(this.friendID);
                     }
@@ -26034,6 +26280,7 @@ function SMP($_, context, settings) {
                 break;
         }
         GUI.updateUsers();
+
     };
 
     /** Create first message in SMP exchange.  Input is Alice's secret value
@@ -26074,7 +26321,7 @@ function SMP($_, context, settings) {
     let err;
 
     bstate.sm_prog_state = "SMP_PROG_CHEATED";
-console.log(input);/////////////////////////////////input = 0????????
+
     // Calculate message in string to BigInteger
     err = unserialize_array(msg1, SM_MSG1_LEN, input);
     if (err){ return "SMP_ERR_MSS_LEN";}
@@ -26511,7 +26758,7 @@ console.log(input);/////////////////////////////////input = 0????????
 }
 
 module.exports = SMP;
-},{}],168:[function(require,module,exports){
+},{}],169:[function(require,module,exports){
 class Time {
 	constructor() {
 		this.begins = {};
@@ -26531,7 +26778,7 @@ class Time {
 };
 
 module.exports = Time;
-},{}],169:[function(require,module,exports){
+},{}],170:[function(require,module,exports){
 /*!
  * EventEmitter v5.1.0 - git.io/ee
  * Unlicense - http://unlicense.org/
@@ -27019,7 +27266,7 @@ module.exports = Time;
     }
 }(this || {}));
 
-},{}],170:[function(require,module,exports){
+},{}],171:[function(require,module,exports){
 const debug = require('debug')('chord'),
 	SimplePeer = require('simple-peer'),
 	events = require('events'),
@@ -27476,7 +27723,7 @@ Chord.prototype.publish = function(channel, evt, data) {
 }
 
 module.exports = Chord
-},{"./hub":171,"./node":173,"co":180,"debug":184,"events":82,"simple-peer":213,"socket.io-client":229,"util":157}],171:[function(require,module,exports){
+},{"./hub":172,"./node":174,"co":181,"debug":185,"events":82,"simple-peer":214,"socket.io-client":230,"util":157}],172:[function(require,module,exports){
 const debug = require('debug')('chord-hub'),
 	co = require('co')
 
@@ -27663,7 +27910,7 @@ Hub.prototype.checkCalls = function() {
 }
 
 module.exports = Hub
-},{"co":180,"debug":184}],172:[function(require,module,exports){
+},{"co":181,"debug":185}],173:[function(require,module,exports){
 const BigInt = require('big-integer'),
 	crypto = require('crypto')
 
@@ -27714,7 +27961,7 @@ NodeId.prototype.inRange = function(begin, id, end) {
 }
 
 module.exports = NodeId
-},{"big-integer":178,"crypto":55}],173:[function(require,module,exports){
+},{"big-integer":179,"crypto":55}],174:[function(require,module,exports){
 const NodeId = require('./node-id')()
 
 // https://pdos.csail.mit.edu/papers/chord:sigcomm01/chord_sigcomm.pdf
@@ -28006,7 +28253,7 @@ Node.prototype.poll = function() {
 
 module.exports = Node
 
-},{"./node-id":172}],174:[function(require,module,exports){
+},{"./node-id":173}],175:[function(require,module,exports){
 module.exports = after
 
 function after(count, callback, err_cb) {
@@ -28036,7 +28283,7 @@ function after(count, callback, err_cb) {
 
 function noop() {}
 
-},{}],175:[function(require,module,exports){
+},{}],176:[function(require,module,exports){
 /**
  * An abstraction for slicing an arraybuffer even when
  * ArrayBuffer.prototype.slice is not supported
@@ -28067,7 +28314,7 @@ module.exports = function(arraybuffer, start, end) {
   return result.buffer;
 };
 
-},{}],176:[function(require,module,exports){
+},{}],177:[function(require,module,exports){
 
 /**
  * Expose `Backoff`.
@@ -28154,7 +28401,7 @@ Backoff.prototype.setJitter = function(jitter){
 };
 
 
-},{}],177:[function(require,module,exports){
+},{}],178:[function(require,module,exports){
 /*
  * base64-arraybuffer
  * https://github.com/niklasvh/base64-arraybuffer
@@ -28223,7 +28470,7 @@ Backoff.prototype.setJitter = function(jitter){
   };
 })();
 
-},{}],178:[function(require,module,exports){
+},{}],179:[function(require,module,exports){
 var bigInt = (function (undefined) {
     "use strict";
 
@@ -29677,7 +29924,7 @@ if (typeof define === "function" && define.amd) {
     });
 }
 
-},{}],179:[function(require,module,exports){
+},{}],180:[function(require,module,exports){
 /**
  * Create a blob builder even when vendor prefixes exist
  */
@@ -29779,7 +30026,7 @@ module.exports = (function() {
   }
 })();
 
-},{}],180:[function(require,module,exports){
+},{}],181:[function(require,module,exports){
 
 /**
  * slice() reference.
@@ -30018,7 +30265,7 @@ function isObject(val) {
   return Object == val.constructor;
 }
 
-},{}],181:[function(require,module,exports){
+},{}],182:[function(require,module,exports){
 /**
  * Slice reference.
  */
@@ -30043,7 +30290,7 @@ module.exports = function(obj, fn){
   }
 };
 
-},{}],182:[function(require,module,exports){
+},{}],183:[function(require,module,exports){
 
 /**
  * Expose `Emitter`.
@@ -30208,7 +30455,7 @@ Emitter.prototype.hasListeners = function(event){
   return !! this.listeners(event).length;
 };
 
-},{}],183:[function(require,module,exports){
+},{}],184:[function(require,module,exports){
 
 module.exports = function(a, b){
   var fn = function(){};
@@ -30216,7 +30463,7 @@ module.exports = function(a, b){
   a.prototype = new fn;
   a.prototype.constructor = a;
 };
-},{}],184:[function(require,module,exports){
+},{}],185:[function(require,module,exports){
 (function (process){
 /* eslint-env browser */
 
@@ -30484,7 +30731,7 @@ formatters.j = function (v) {
 };
 
 }).call(this,require('_process'))
-},{"./common":185,"_process":117}],185:[function(require,module,exports){
+},{"./common":186,"_process":117}],186:[function(require,module,exports){
 
 /**
  * This is the common logic for both the Node.js and web browser
@@ -30752,7 +30999,7 @@ function setup(env) {
 
 module.exports = setup;
 
-},{"ms":207}],186:[function(require,module,exports){
+},{"ms":208}],187:[function(require,module,exports){
 
 module.exports = require('./socket');
 
@@ -30764,7 +31011,7 @@ module.exports = require('./socket');
  */
 module.exports.parser = require('engine.io-parser');
 
-},{"./socket":187,"engine.io-parser":198}],187:[function(require,module,exports){
+},{"./socket":188,"engine.io-parser":199}],188:[function(require,module,exports){
 /**
  * Module dependencies.
  */
@@ -31512,7 +31759,7 @@ Socket.prototype.filterUpgrades = function (upgrades) {
   return filteredUpgrades;
 };
 
-},{"./transport":188,"./transports/index":189,"component-emitter":182,"debug":195,"engine.io-parser":198,"indexof":205,"parseqs":208,"parseuri":209}],188:[function(require,module,exports){
+},{"./transport":189,"./transports/index":190,"component-emitter":183,"debug":196,"engine.io-parser":199,"indexof":206,"parseqs":209,"parseuri":210}],189:[function(require,module,exports){
 /**
  * Module dependencies.
  */
@@ -31674,7 +31921,7 @@ Transport.prototype.onClose = function () {
   this.emit('close');
 };
 
-},{"component-emitter":182,"engine.io-parser":198}],189:[function(require,module,exports){
+},{"component-emitter":183,"engine.io-parser":199}],190:[function(require,module,exports){
 /**
  * Module dependencies
  */
@@ -31729,7 +31976,7 @@ function polling (opts) {
   }
 }
 
-},{"./polling-jsonp":190,"./polling-xhr":191,"./websocket":193,"xmlhttprequest-ssl":194}],190:[function(require,module,exports){
+},{"./polling-jsonp":191,"./polling-xhr":192,"./websocket":194,"xmlhttprequest-ssl":195}],191:[function(require,module,exports){
 (function (global){
 /**
  * Module requirements.
@@ -31972,7 +32219,7 @@ JSONPPolling.prototype.doWrite = function (data, fn) {
 };
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"./polling":192,"component-inherit":183}],191:[function(require,module,exports){
+},{"./polling":193,"component-inherit":184}],192:[function(require,module,exports){
 /* global attachEvent */
 
 /**
@@ -32389,7 +32636,7 @@ function unloadHandler () {
   }
 }
 
-},{"./polling":192,"component-emitter":182,"component-inherit":183,"debug":195,"xmlhttprequest-ssl":194}],192:[function(require,module,exports){
+},{"./polling":193,"component-emitter":183,"component-inherit":184,"debug":196,"xmlhttprequest-ssl":195}],193:[function(require,module,exports){
 /**
  * Module dependencies.
  */
@@ -32636,7 +32883,7 @@ Polling.prototype.uri = function () {
   return schema + '://' + (ipv6 ? '[' + this.hostname + ']' : this.hostname) + port + this.path + query;
 };
 
-},{"../transport":188,"component-inherit":183,"debug":195,"engine.io-parser":198,"parseqs":208,"xmlhttprequest-ssl":194,"yeast":248}],193:[function(require,module,exports){
+},{"../transport":189,"component-inherit":184,"debug":196,"engine.io-parser":199,"parseqs":209,"xmlhttprequest-ssl":195,"yeast":249}],194:[function(require,module,exports){
 (function (Buffer){
 /**
  * Module dependencies.
@@ -32933,7 +33180,7 @@ WS.prototype.check = function () {
 };
 
 }).call(this,require("buffer").Buffer)
-},{"../transport":188,"buffer":47,"component-inherit":183,"debug":195,"engine.io-parser":198,"parseqs":208,"ws":18,"yeast":248}],194:[function(require,module,exports){
+},{"../transport":189,"buffer":47,"component-inherit":184,"debug":196,"engine.io-parser":199,"parseqs":209,"ws":18,"yeast":249}],195:[function(require,module,exports){
 // browser shim for xmlhttprequest module
 
 var hasCORS = require('has-cors');
@@ -32972,7 +33219,7 @@ module.exports = function (opts) {
   }
 };
 
-},{"has-cors":204}],195:[function(require,module,exports){
+},{"has-cors":205}],196:[function(require,module,exports){
 (function (process){
 /**
  * This is the web browser implementation of `debug()`.
@@ -33171,7 +33418,7 @@ function localstorage() {
 }
 
 }).call(this,require('_process'))
-},{"./debug":196,"_process":117}],196:[function(require,module,exports){
+},{"./debug":197,"_process":117}],197:[function(require,module,exports){
 
 /**
  * This is the common logic for both the Node.js and web browser
@@ -33398,7 +33645,7 @@ function coerce(val) {
   return val;
 }
 
-},{"ms":197}],197:[function(require,module,exports){
+},{"ms":198}],198:[function(require,module,exports){
 /**
  * Helpers.
  */
@@ -33552,7 +33799,7 @@ function plural(ms, n, name) {
   return Math.ceil(ms / n) + ' ' + name + 's';
 }
 
-},{}],198:[function(require,module,exports){
+},{}],199:[function(require,module,exports){
 /**
  * Module dependencies.
  */
@@ -34159,7 +34406,7 @@ exports.decodePayloadAsBinary = function (data, binaryType, callback) {
   });
 };
 
-},{"./keys":199,"./utf8":200,"after":174,"arraybuffer.slice":175,"base64-arraybuffer":177,"blob":179,"has-binary2":202}],199:[function(require,module,exports){
+},{"./keys":200,"./utf8":201,"after":175,"arraybuffer.slice":176,"base64-arraybuffer":178,"blob":180,"has-binary2":203}],200:[function(require,module,exports){
 
 /**
  * Gets the keys for an object.
@@ -34180,7 +34427,7 @@ module.exports = Object.keys || function keys (obj){
   return arr;
 };
 
-},{}],200:[function(require,module,exports){
+},{}],201:[function(require,module,exports){
 /*! https://mths.be/utf8js v2.1.2 by @mathias */
 
 var stringFromCharCode = String.fromCharCode;
@@ -34392,7 +34639,7 @@ module.exports = {
 	decode: utf8decode
 };
 
-},{}],201:[function(require,module,exports){
+},{}],202:[function(require,module,exports){
 // originally pulled out of simple-peer
 
 module.exports = function getBrowserRTC () {
@@ -34409,7 +34656,7 @@ module.exports = function getBrowserRTC () {
   return wrtc
 }
 
-},{}],202:[function(require,module,exports){
+},{}],203:[function(require,module,exports){
 (function (Buffer){
 /* global Blob File */
 
@@ -34477,9 +34724,9 @@ function hasBinary (obj) {
 }
 
 }).call(this,require("buffer").Buffer)
-},{"buffer":47,"isarray":203}],203:[function(require,module,exports){
+},{"buffer":47,"isarray":204}],204:[function(require,module,exports){
 arguments[4][101][0].apply(exports,arguments)
-},{"dup":101}],204:[function(require,module,exports){
+},{"dup":101}],205:[function(require,module,exports){
 
 /**
  * Module exports.
@@ -34498,7 +34745,7 @@ try {
   module.exports = false;
 }
 
-},{}],205:[function(require,module,exports){
+},{}],206:[function(require,module,exports){
 
 var indexOf = [].indexOf;
 
@@ -34509,9 +34756,9 @@ module.exports = function(arr, obj){
   }
   return -1;
 };
-},{}],206:[function(require,module,exports){
+},{}],207:[function(require,module,exports){
 arguments[4][99][0].apply(exports,arguments)
-},{"dup":99}],207:[function(require,module,exports){
+},{"dup":99}],208:[function(require,module,exports){
 /**
  * Helpers.
  */
@@ -34675,7 +34922,7 @@ function plural(ms, msAbs, n, name) {
   return Math.round(ms / n) + ' ' + name + (isPlural ? 's' : '');
 }
 
-},{}],208:[function(require,module,exports){
+},{}],209:[function(require,module,exports){
 /**
  * Compiles a querystring
  * Returns string representation of the object
@@ -34714,7 +34961,7 @@ exports.decode = function(qs){
   return qry;
 };
 
-},{}],209:[function(require,module,exports){
+},{}],210:[function(require,module,exports){
 /**
  * Parses an URI
  *
@@ -34755,7 +35002,7 @@ module.exports = function parseuri(str) {
     return uri;
 };
 
-},{}],210:[function(require,module,exports){
+},{}],211:[function(require,module,exports){
 let promise
 
 module.exports = typeof queueMicrotask === 'function'
@@ -34765,11 +35012,11 @@ module.exports = typeof queueMicrotask === 'function'
     .then(cb)
     .catch(err => setTimeout(() => { throw err }, 0))
 
-},{}],211:[function(require,module,exports){
+},{}],212:[function(require,module,exports){
 arguments[4][124][0].apply(exports,arguments)
-},{"_process":117,"dup":124,"safe-buffer":212}],212:[function(require,module,exports){
+},{"_process":117,"dup":124,"safe-buffer":213}],213:[function(require,module,exports){
 arguments[4][142][0].apply(exports,arguments)
-},{"buffer":47,"dup":142}],213:[function(require,module,exports){
+},{"buffer":47,"dup":142}],214:[function(require,module,exports){
 (function (Buffer){
 var debug = require('debug')('simple-peer')
 var getBrowserRTC = require('get-browser-rtc')
@@ -35776,7 +36023,7 @@ Peer.channelConfig = {}
 module.exports = Peer
 
 }).call(this,require("buffer").Buffer)
-},{"buffer":47,"debug":184,"get-browser-rtc":201,"queue-microtask":210,"randombytes":211,"readable-stream":228}],214:[function(require,module,exports){
+},{"buffer":47,"debug":185,"get-browser-rtc":202,"queue-microtask":211,"randombytes":212,"readable-stream":229}],215:[function(require,module,exports){
 'use strict';
 
 function _inheritsLoose(subClass, superClass) { subClass.prototype = Object.create(superClass.prototype); subClass.prototype.constructor = subClass; subClass.__proto__ = superClass; }
@@ -35905,7 +36152,7 @@ createErrorType('ERR_UNKNOWN_ENCODING', function (arg) {
 createErrorType('ERR_STREAM_UNSHIFT_AFTER_END_EVENT', 'stream.unshift() after end event');
 module.exports.codes = codes;
 
-},{}],215:[function(require,module,exports){
+},{}],216:[function(require,module,exports){
 (function (process){
 // Copyright Joyent, Inc. and other Node contributors.
 //
@@ -36047,7 +36294,7 @@ Object.defineProperty(Duplex.prototype, 'destroyed', {
   }
 });
 }).call(this,require('_process'))
-},{"./_stream_readable":217,"./_stream_writable":219,"_process":117,"inherits":206}],216:[function(require,module,exports){
+},{"./_stream_readable":218,"./_stream_writable":220,"_process":117,"inherits":207}],217:[function(require,module,exports){
 // Copyright Joyent, Inc. and other Node contributors.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a
@@ -36087,7 +36334,7 @@ function PassThrough(options) {
 PassThrough.prototype._transform = function (chunk, encoding, cb) {
   cb(null, chunk);
 };
-},{"./_stream_transform":218,"inherits":206}],217:[function(require,module,exports){
+},{"./_stream_transform":219,"inherits":207}],218:[function(require,module,exports){
 (function (process,global){
 // Copyright Joyent, Inc. and other Node contributors.
 //
@@ -37214,7 +37461,7 @@ function indexOf(xs, x) {
   return -1;
 }
 }).call(this,require('_process'),typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"../errors":214,"./_stream_duplex":215,"./internal/streams/async_iterator":220,"./internal/streams/buffer_list":221,"./internal/streams/destroy":222,"./internal/streams/from":224,"./internal/streams/state":226,"./internal/streams/stream":227,"_process":117,"buffer":47,"events":82,"inherits":206,"string_decoder/":244,"util":18}],218:[function(require,module,exports){
+},{"../errors":215,"./_stream_duplex":216,"./internal/streams/async_iterator":221,"./internal/streams/buffer_list":222,"./internal/streams/destroy":223,"./internal/streams/from":225,"./internal/streams/state":227,"./internal/streams/stream":228,"_process":117,"buffer":47,"events":82,"inherits":207,"string_decoder/":245,"util":18}],219:[function(require,module,exports){
 // Copyright Joyent, Inc. and other Node contributors.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a
@@ -37416,7 +37663,7 @@ function done(stream, er, data) {
   if (stream._transformState.transforming) throw new ERR_TRANSFORM_ALREADY_TRANSFORMING();
   return stream.push(null);
 }
-},{"../errors":214,"./_stream_duplex":215,"inherits":206}],219:[function(require,module,exports){
+},{"../errors":215,"./_stream_duplex":216,"inherits":207}],220:[function(require,module,exports){
 (function (process,global){
 // Copyright Joyent, Inc. and other Node contributors.
 //
@@ -38116,7 +38363,7 @@ Writable.prototype._destroy = function (err, cb) {
   cb(err);
 };
 }).call(this,require('_process'),typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"../errors":214,"./_stream_duplex":215,"./internal/streams/destroy":222,"./internal/streams/state":226,"./internal/streams/stream":227,"_process":117,"buffer":47,"inherits":206,"util-deprecate":247}],220:[function(require,module,exports){
+},{"../errors":215,"./_stream_duplex":216,"./internal/streams/destroy":223,"./internal/streams/state":227,"./internal/streams/stream":228,"_process":117,"buffer":47,"inherits":207,"util-deprecate":248}],221:[function(require,module,exports){
 (function (process){
 'use strict';
 
@@ -38326,7 +38573,7 @@ var createReadableStreamAsyncIterator = function createReadableStreamAsyncIterat
 
 module.exports = createReadableStreamAsyncIterator;
 }).call(this,require('_process'))
-},{"./end-of-stream":223,"_process":117}],221:[function(require,module,exports){
+},{"./end-of-stream":224,"_process":117}],222:[function(require,module,exports){
 'use strict';
 
 function ownKeys(object, enumerableOnly) { var keys = Object.keys(object); if (Object.getOwnPropertySymbols) { var symbols = Object.getOwnPropertySymbols(object); if (enumerableOnly) symbols = symbols.filter(function (sym) { return Object.getOwnPropertyDescriptor(object, sym).enumerable; }); keys.push.apply(keys, symbols); } return keys; }
@@ -38518,7 +38765,7 @@ function () {
 
   return BufferList;
 }();
-},{"buffer":47,"util":18}],222:[function(require,module,exports){
+},{"buffer":47,"util":18}],223:[function(require,module,exports){
 (function (process){
 'use strict'; // undocumented cb() API, needed for core, not for public API
 
@@ -38626,7 +38873,7 @@ module.exports = {
   errorOrDestroy: errorOrDestroy
 };
 }).call(this,require('_process'))
-},{"_process":117}],223:[function(require,module,exports){
+},{"_process":117}],224:[function(require,module,exports){
 // Ported from https://github.com/mafintosh/end-of-stream with
 // permission from the author, Mathias Buus (@mafintosh).
 'use strict';
@@ -38731,12 +38978,12 @@ function eos(stream, opts, callback) {
 }
 
 module.exports = eos;
-},{"../../../errors":214}],224:[function(require,module,exports){
+},{"../../../errors":215}],225:[function(require,module,exports){
 module.exports = function () {
   throw new Error('Readable.from is not available in the browser')
 };
 
-},{}],225:[function(require,module,exports){
+},{}],226:[function(require,module,exports){
 // Ported from https://github.com/mafintosh/pump with
 // permission from the author, Mathias Buus (@mafintosh).
 'use strict';
@@ -38834,7 +39081,7 @@ function pipeline() {
 }
 
 module.exports = pipeline;
-},{"../../../errors":214,"./end-of-stream":223}],226:[function(require,module,exports){
+},{"../../../errors":215,"./end-of-stream":224}],227:[function(require,module,exports){
 'use strict';
 
 var ERR_INVALID_OPT_VALUE = require('../../../errors').codes.ERR_INVALID_OPT_VALUE;
@@ -38862,9 +39109,9 @@ function getHighWaterMark(state, options, duplexKey, isDuplex) {
 module.exports = {
   getHighWaterMark: getHighWaterMark
 };
-},{"../../../errors":214}],227:[function(require,module,exports){
+},{"../../../errors":215}],228:[function(require,module,exports){
 arguments[4][134][0].apply(exports,arguments)
-},{"dup":134,"events":82}],228:[function(require,module,exports){
+},{"dup":134,"events":82}],229:[function(require,module,exports){
 exports = module.exports = require('./lib/_stream_readable.js');
 exports.Stream = exports;
 exports.Readable = exports;
@@ -38875,7 +39122,7 @@ exports.PassThrough = require('./lib/_stream_passthrough.js');
 exports.finished = require('./lib/internal/streams/end-of-stream.js');
 exports.pipeline = require('./lib/internal/streams/pipeline.js');
 
-},{"./lib/_stream_duplex.js":215,"./lib/_stream_passthrough.js":216,"./lib/_stream_readable.js":217,"./lib/_stream_transform.js":218,"./lib/_stream_writable.js":219,"./lib/internal/streams/end-of-stream.js":223,"./lib/internal/streams/pipeline.js":225}],229:[function(require,module,exports){
+},{"./lib/_stream_duplex.js":216,"./lib/_stream_passthrough.js":217,"./lib/_stream_readable.js":218,"./lib/_stream_transform.js":219,"./lib/_stream_writable.js":220,"./lib/internal/streams/end-of-stream.js":224,"./lib/internal/streams/pipeline.js":226}],230:[function(require,module,exports){
 
 /**
  * Module dependencies.
@@ -38971,7 +39218,7 @@ exports.connect = lookup;
 exports.Manager = require('./manager');
 exports.Socket = require('./socket');
 
-},{"./manager":230,"./socket":232,"./url":233,"debug":234,"socket.io-parser":238}],230:[function(require,module,exports){
+},{"./manager":231,"./socket":233,"./url":234,"debug":235,"socket.io-parser":239}],231:[function(require,module,exports){
 
 /**
  * Module dependencies.
@@ -39546,7 +39793,7 @@ Manager.prototype.onreconnect = function () {
   this.emitAll('reconnect', attempt);
 };
 
-},{"./on":231,"./socket":232,"backo2":176,"component-bind":181,"component-emitter":182,"debug":234,"engine.io-client":186,"indexof":205,"socket.io-parser":238}],231:[function(require,module,exports){
+},{"./on":232,"./socket":233,"backo2":177,"component-bind":182,"component-emitter":183,"debug":235,"engine.io-client":187,"indexof":206,"socket.io-parser":239}],232:[function(require,module,exports){
 
 /**
  * Module exports.
@@ -39572,7 +39819,7 @@ function on (obj, ev, fn) {
   };
 }
 
-},{}],232:[function(require,module,exports){
+},{}],233:[function(require,module,exports){
 
 /**
  * Module dependencies.
@@ -40012,7 +40259,7 @@ Socket.prototype.binary = function (binary) {
   return this;
 };
 
-},{"./on":231,"component-bind":181,"component-emitter":182,"debug":234,"has-binary2":202,"parseqs":208,"socket.io-parser":238,"to-array":246}],233:[function(require,module,exports){
+},{"./on":232,"component-bind":182,"component-emitter":183,"debug":235,"has-binary2":203,"parseqs":209,"socket.io-parser":239,"to-array":247}],234:[function(require,module,exports){
 
 /**
  * Module dependencies.
@@ -40089,13 +40336,13 @@ function url (uri, loc) {
   return obj;
 }
 
-},{"debug":234,"parseuri":209}],234:[function(require,module,exports){
-arguments[4][195][0].apply(exports,arguments)
-},{"./debug":235,"_process":117,"dup":195}],235:[function(require,module,exports){
+},{"debug":235,"parseuri":210}],235:[function(require,module,exports){
 arguments[4][196][0].apply(exports,arguments)
-},{"dup":196,"ms":236}],236:[function(require,module,exports){
+},{"./debug":236,"_process":117,"dup":196}],236:[function(require,module,exports){
 arguments[4][197][0].apply(exports,arguments)
-},{"dup":197}],237:[function(require,module,exports){
+},{"dup":197,"ms":237}],237:[function(require,module,exports){
+arguments[4][198][0].apply(exports,arguments)
+},{"dup":198}],238:[function(require,module,exports){
 /*global Blob,File*/
 
 /**
@@ -40238,7 +40485,7 @@ exports.removeBlobs = function(data, callback) {
   }
 };
 
-},{"./is-buffer":239,"isarray":242}],238:[function(require,module,exports){
+},{"./is-buffer":240,"isarray":243}],239:[function(require,module,exports){
 
 /**
  * Module dependencies.
@@ -40655,7 +40902,7 @@ function error(msg) {
   };
 }
 
-},{"./binary":237,"./is-buffer":239,"component-emitter":182,"debug":240,"isarray":242}],239:[function(require,module,exports){
+},{"./binary":238,"./is-buffer":240,"component-emitter":183,"debug":241,"isarray":243}],240:[function(require,module,exports){
 (function (Buffer){
 
 module.exports = isBuf;
@@ -40679,19 +40926,19 @@ function isBuf(obj) {
 }
 
 }).call(this,require("buffer").Buffer)
-},{"buffer":47}],240:[function(require,module,exports){
-arguments[4][195][0].apply(exports,arguments)
-},{"./debug":241,"_process":117,"dup":195}],241:[function(require,module,exports){
+},{"buffer":47}],241:[function(require,module,exports){
 arguments[4][196][0].apply(exports,arguments)
-},{"dup":196,"ms":243}],242:[function(require,module,exports){
-arguments[4][101][0].apply(exports,arguments)
-},{"dup":101}],243:[function(require,module,exports){
+},{"./debug":242,"_process":117,"dup":196}],242:[function(require,module,exports){
 arguments[4][197][0].apply(exports,arguments)
-},{"dup":197}],244:[function(require,module,exports){
+},{"dup":197,"ms":244}],243:[function(require,module,exports){
+arguments[4][101][0].apply(exports,arguments)
+},{"dup":101}],244:[function(require,module,exports){
+arguments[4][198][0].apply(exports,arguments)
+},{"dup":198}],245:[function(require,module,exports){
 arguments[4][136][0].apply(exports,arguments)
-},{"dup":136,"safe-buffer":245}],245:[function(require,module,exports){
+},{"dup":136,"safe-buffer":246}],246:[function(require,module,exports){
 arguments[4][135][0].apply(exports,arguments)
-},{"buffer":47,"dup":135}],246:[function(require,module,exports){
+},{"buffer":47,"dup":135}],247:[function(require,module,exports){
 module.exports = toArray
 
 function toArray(list, index) {
@@ -40706,9 +40953,9 @@ function toArray(list, index) {
     return array
 }
 
-},{}],247:[function(require,module,exports){
+},{}],248:[function(require,module,exports){
 arguments[4][154][0].apply(exports,arguments)
-},{"dup":154}],248:[function(require,module,exports){
+},{"dup":154}],249:[function(require,module,exports){
 'use strict';
 
 var alphabet = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz-_'.split('')
@@ -40778,4 +41025,4 @@ yeast.encode = encode;
 yeast.decode = decode;
 module.exports = yeast;
 
-},{}]},{},[165]);
+},{}]},{},[166]);

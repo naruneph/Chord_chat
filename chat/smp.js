@@ -6,7 +6,7 @@ function SMP($_, context, settings) {
     let SM_MSG4_LEN = 3;
 
     let SM_MODULUS = new BigInteger("FFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD129024E088A67CC74020BBEA63B139B22514A08798E3404DDEF9519B3CD3A431B302B0A6DF25F14374FE1356D6D51C245E485B576625E7EC6F44C42E9A637ED6B0BFF5CB6F406B7EDEE386BFB5A899FA5AE9F24117C4B1FE649286651ECE45B3DC2007CB8A163BF0598DA48361C55D39A69163FA8FD24CF5F83655D23DCA3AD961C62F356208552BB9ED529077096966D670C354E4ABC9804F1746C08CA237327FFFFFFFFFFFFFFFF", 16);
-    let SM_ORDER = new BigInteger("7FFFFFFFFFFFFFFFE487ED5110B4611A62633145C06E0E68948127044533E63A0105DF531D89CD9128A5043CC71A026EF7CA8CD9E69D218D98158536F92F8A1BA7F09AB6B6A8E122F242DABB312F3F637A262174D31BF6B585FFAE5B7A035BF6F71C35FDAD44CFD2D74F9208BE258FF324943328F6722D9EE1003E5C50B1DF82CC6D241B0E2AE9CD348B1FD47E9267AFC1B2AE91EE51D6CB0E3179AB1042A95DCF6A9483B84B4B36B3861AA7255E4C0278BA36046511B993FFFFFFFFFFFFFFFF", 16);
+    let SM_ORDER =   new BigInteger("7FFFFFFFFFFFFFFFE487ED5110B4611A62633145C06E0E68948127044533E63A0105DF531D89CD9128A5043CC71A026EF7CA8CD9E69D218D98158536F92F8A1BA7F09AB6B6A8E122F242DABB312F3F637A262174D31BF6B585FFAE5B7A035BF6F71C35FDAD44CFD2D74F9208BE258FF324943328F6722D9EE1003E5C50B1DF82CC6D241B0E2AE9CD348B1FD47E9267AFC1B2AE91EE51D6CB0E3179AB1042A95DCF6A9483B84B4B36B3861AA7255E4C0278BA36046511B993FFFFFFFFFFFFFFFF", 16);
     let SM_GENERATOR = "2";
 
     let two = new BigInteger("2",16);
@@ -35,7 +35,6 @@ function SMP($_, context, settings) {
     };
 
     this.sendMes = function(msg, type){
-        console.log(this);
         let data = {
             "roomId": this.context.room.id,
             "type": type,
@@ -84,20 +83,6 @@ function SMP($_, context, settings) {
         
     };
 
-    //должна делать зелёненьким
-    /*this.button_good = function (peer) {
-        var elem = document.getElementById(`sm_status_${peer}`)
-        //elem.prop("disabled", true);
-        elem.classList.add("status_good");
-    };
-
-    //должна делать красненьким
-    this.button_bad = function (peer) {
-        var elem = document.getElementById(`sm_status_${peer}`)
-        //elem.prop("disabled", true);
-        elem.classList.add("status_bad");
-    }; */
-
     /**
      * For each step send next message, set the next expected one
      * Informs the user about the assumption of smp
@@ -122,9 +107,7 @@ function SMP($_, context, settings) {
                 this.sendMes(output[0], $_.MSG.SMP_STEP4);
                 this.nextExpected = "SMP_EXPECT_NO";
                 if(this.sm_prog_state === "OK") {
-                    //
-                    //this.friendID is secure - сделать зелёненьким
-                    //
+
                     if(!chat.validUsers.has(this.friendID)){
                         chat.validUsers.set(this.friendID, this.friend_pubKey);
                     }
@@ -132,9 +115,7 @@ function SMP($_, context, settings) {
                     this.context.csmp.result[this.friendID] = $_.CSMP_RESULTS.GOOD;
                     this.context.csmp.groups[this.friendID] = this.myID;
                 } else {
-                    //
-                    //this.friendID is not secure - сделать красненьким
-                    //
+
                     if(chat.validUsers.has(this.friendID) && (chat.validUsers.get(this.friendID) === this.friend_pubKey)){
                         chat.validUsers.delete(this.friendID);
                     }
@@ -157,15 +138,16 @@ function SMP($_, context, settings) {
                 this.sm_prog_state = sm_step5(this, input);
                 this.nextExpected = "SMP_EXPECT_NO";
                 if(this.sm_prog_state === "OK") {
-                    //
-                    //this.friendID is secure - сделать зелёненьким
-                    //
+
                     if(!chat.validUsers.has(this.friendID)){
                         chat.validUsers.set(this.friendID, this.friend_pubKey);
                     }
 
                     this.context.csmp.result[this.friendID] = $_.CSMP_RESULTS.GOOD;
                     this.context.csmp.status = $_.CSMP_STATUS.DONE;
+
+                    // E.ee.emitEvent(E.EVENTS.AUTH_FINISH, [this.context.room]);
+
                     this.context.csmp.groups[this.friendID] = this.myID;
                     this.context.csmp.amount_unknown -= 1;
                     this.context.csmp.checked_by_me.push(this.friendID);
@@ -176,10 +158,10 @@ function SMP($_, context, settings) {
                     if (this.context.csmp.mail[this.friendID] !== undefined){
                         this.context.csmp.handleMessage(this.friendID, this.context.csmp.mail[this.friendID]);
                     }
+
+                    E.ee.emitEvent(E.EVENTS.AUTH_FINISH, [this.context.room]);
                 } else {
-                    //
-                    //this.friendID is not secure - сделать красненьким
-                    //
+    
                     if(chat.validUsers.has(this.friendID) && (chat.validUsers.get(this.friendID) === this.friend_pubKey)){
                         chat.validUsers.delete(this.friendID);
                     }
@@ -206,6 +188,7 @@ function SMP($_, context, settings) {
                 break;
         }
         GUI.updateUsers();
+
     };
 
     /** Create first message in SMP exchange.  Input is Alice's secret value
@@ -246,7 +229,7 @@ function SMP($_, context, settings) {
     let err;
 
     bstate.sm_prog_state = "SMP_PROG_CHEATED";
-console.log(input);/////////////////////////////////input = 0????????
+
     // Calculate message in string to BigInteger
     err = unserialize_array(msg1, SM_MSG1_LEN, input);
     if (err){ return "SMP_ERR_MSS_LEN";}

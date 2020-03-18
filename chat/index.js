@@ -6,7 +6,8 @@ const ChordModule = require("../lib/chord/chord"),
 	  toClipboard = require("./clipboard"),
 	  CryptoModule = require("./crypto"),
 	  BigInt = require("big-integer"),
-	  CSMP = require("./csmp");
+	  CSMP = require("./csmp"),
+	  CCEGK = require("./ccegk");
 
 const
 	chat = new ChatModule(),
@@ -361,8 +362,9 @@ GUI.authentication.addEventListener("click", function(event) {
 });
 
 GUI.authBySMP.addEventListener("click", function(event) {
+	GUI.authBlock.style.display = "none";
 	let c = CONTEXTS[chat.getRoom().id];
-	let $_ = EMITTERS[chat.getRoom().id]
+	let $_ = EMITTERS[chat.getRoom().id];
 
 	let data = {
 		"type": $_.MSG.CSMP_INIT,
@@ -382,11 +384,32 @@ GUI.authBySMP.addEventListener("click", function(event) {
 	} else {
 	   c.csmp.sendResults();
 	}
+	
 });
 
 GUI.authByCommunities.addEventListener("click", function(event) {
 	GUI.authBlock.style.display = "none";
 });
+
+GUI.ccegk.addEventListener("click", function(event) {
+	GUI.authBlock.style.display = "none";
+
+	let c = CONTEXTS[chat.getRoom().id];
+	let $_ = EMITTERS[chat.getRoom().id];
+
+	let data = {
+		"type": $_.MSG.CCEGK_INIT,
+		"data": 'MSG.CCEGK_INIT',
+		"room": chat.getRoom().id
+	};
+	chord.publish(chat.getRoom().id, $_.MSG.BROADCAST, data);	
+
+	if (c.ccegk === undefined){
+		c.ccegk = new CCEGK($_, c, CryptoModule.settings);
+        c.ccegk.init();
+	}
+});
+
 
 
 
@@ -467,15 +490,10 @@ ChordModule.prototype.getWRTCString(function(str) {
 
 	chord.on(E.MSG.SMP_STEP1, data => {
 		let e = EMITTERS[data.roomId];
+		
+		if(e)
+			e.ee.emitEvent(E.MSG.SMP_STEP1, [data]);
 
-		try {
-			if(e)
-				e.ee.emitEvent(E.MSG.SMP_STEP1, [data]);
-		} catch(err) {
-			console.warn(err, data);
-		}
-
-		console.log(E.MSG.SMP_STEP1, data);
 	});
 
 	chord.on(E.MSG.SMP_STEP2, data => {
@@ -484,7 +502,6 @@ ChordModule.prototype.getWRTCString(function(str) {
 		if(e)
 			e.ee.emitEvent(E.MSG.SMP_STEP2, [data]);
 
-		console.log(E.MSG.SMP_STEP2, data);
 	});
 
 	chord.on(E.MSG.SMP_STEP3, data => {
@@ -492,8 +509,6 @@ ChordModule.prototype.getWRTCString(function(str) {
 
 		if(e)
 			e.ee.emitEvent(E.MSG.SMP_STEP3, [data]);
-
-		console.log(E.MSG.SMP_STEP3, data);
 	});
 
 	chord.on(E.MSG.SMP_STEP4, data => {
@@ -502,7 +517,12 @@ ChordModule.prototype.getWRTCString(function(str) {
 		if(e)
 			e.ee.emitEvent(E.MSG.SMP_STEP4, [data]);
 
-		console.log(E.MSG.SMP_STEP4, data);
+	});
+
+	chord.on(E.MSG.CCEGK, data => {
+		let e = EMITTERS[data.room];
+		if(e)
+			e.ee.emitEvent(E.MSG.CCEGK, [data]);
 	});
 
 	chord.on("-newRoom-", function(room) {
@@ -512,3 +532,16 @@ ChordModule.prototype.getWRTCString(function(str) {
 	});
 });
 
+//////////////////////////////////////////////////////////////
+///AUTH EVENTS
+//////////////////////////////////////////////////////////////
+
+// E.ee.addListener(E.EVENTS.AUTH_FINISH, (room) => {
+// 
+// 	// for (var i = 0; i < room.users.length; i++){
+// 	// 	if(!chat.validUsers.has(room.users[i])){
+// 	// 		flag = false;
+// 	// 		quitRoom(room.id)
+// 	// 	}
+// 	// }
+// });

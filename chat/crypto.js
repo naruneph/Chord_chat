@@ -1,6 +1,7 @@
 const Settings = require("./settings"),
       SMP = require("./smp"),
-      CSMP = require("./csmp");
+      CSMP = require("./csmp"),
+      CCEGK = require("./ccegk");
 const settings = new Settings();
 
 exports.settings = settings;
@@ -456,13 +457,13 @@ exports.main = function($_, time) {
             this.c_i = undefined;
 
             this.secret = undefined;
-
             this.smList = {};
             this.csmp = undefined;
-
             for (var i = 0; i < this.room.users.length; i++){
                 this.smList[this.room.users[i]] = new SMP($_,this, settings);
             }
+
+            this.ccegk = undefined;
 
             // OldBlue buffers
             this.frontier = [];
@@ -830,59 +831,44 @@ exports.main = function($_, time) {
         $_.ee.addListener($_.EVENTS.MPOTR_START, () => {
             this.status = $_.STATUS.MPOTR;
             //SMP available after mpotr starts
-            for(let i = 0; i < this.room.users.length; i++) {
-                let friend = this.room.users[i];
-                if (chat.validUsers.has(friend) && (chat.validUsers.get(friend) === this.longtermPubKeys[friend]) ){
-                    //сделать зелёненьким
-                } else {
-                    //сделать красненьким
-                }
-            }
         });
 
         // Reset context on chat shutdown
         $_.ee.addListener($_.EVENTS.MPOTR_SHUTDOWN_FINISH, () => {
-            //if(data.room = this.room.id)
             this.reset();
         });
 
         // Init received! Checking current chat status and starting new one!
         $_.ee.addListener($_.MSG.MPOTR_INIT, this.checkStatus([$_.STATUS.UNENCRYPTED, $_.STATUS.MPOTR], (data) => {
-            //if(data.room = this.room.id)
                 this.mpOTRInit();
 
         }));
 
         $_.ee.addListener($_.MSG.MPOTR_CHAT, this.checkStatus([$_.STATUS.MPOTR], (data) => {
-            //if(data.room = this.room.id)
                 this.receiveMessage(data);
         }));
 
         $_.ee.addListener($_.MSG.MPOTR_SHUTDOWN, this.checkStatus([$_.STATUS.MPOTR, $_.STATUS.SHUTDOWN], (data) => {
-            //if(data.room = this.room.id)
                 this.receiveMessage(data);
-            //this.stopLocal();
         }));
 
         $_.ee.addListener("stopChat", this.checkStatus([$_.STATUS.MPOTR], (data) => {
-            //this.receiveMessage(data);
-            //if(data.room = this.room.id)
                 this.stopChat();
         }));
 
         $_.ee.addListener($_.MSG.MPOTR_LOST_MSG, this.checkStatus([$_.STATUS.MPOTR], (data) => {
-            //if(data.room = this.room.id) {
-                if (!this.checkSig(data, data["from"])) {
-                    alert("Signature check fail");
-                    return;
-                }
 
-                let response = this.deliveryResponse(data);
+            if (!this.checkSig(data, data["from"])) {
+                alert("Signature check fail");
+                return;
+            }
 
-                if (response) {
-                    conn.send(response);
-                }
-            //}
+            let response = this.deliveryResponse(data);
+
+            if (response) {
+                conn.send(response);
+            }
+            
         }));
 
         this.amILeader = function() {
@@ -932,28 +918,6 @@ exports.main = function($_, time) {
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
     	$_.ee.addListener($_.MSG.CSMP_RESULT, this.checkStatus([$_.STATUS.MPOTR], (data) => {
         	// if (!check_sender(data["data"]["from"])){
         	// 	return;
@@ -978,12 +942,7 @@ exports.main = function($_, time) {
         }));
 
         $_.ee.addListener($_.MSG.SMP_STEP1, this.checkStatus([$_.STATUS.MPOTR], (data) => {
-            console.warn("$_.MSG.SMP_STEP1");
-            // if (!check_sender(data["data"]["from"])){
-            // 	return;
-            // }
-            console.log(chat, data, this.csmp, this.smList);
-
+            
             if (chat.id === data["data"]["to"]){
                 if (!this.checkSig(data, data["data"]["from"])) {
                     alert("Signature check fail");
@@ -1004,9 +963,7 @@ exports.main = function($_, time) {
         }));
 
         $_.ee.addListener($_.MSG.SMP_STEP2, this.checkStatus([$_.STATUS.MPOTR], (data) => {
-            // if (!check_sender(data["data"]["from"])){
-            // 	return;
-            // }
+            
             if (chat.id === data["data"]["to"]){
                 if (!this.checkSig(data, data["data"]["from"])) {
                     alert("Signature check fail");
@@ -1020,9 +977,7 @@ exports.main = function($_, time) {
         }));
 
         $_.ee.addListener($_.MSG.SMP_STEP3, this.checkStatus([$_.STATUS.MPOTR], (data) => {
-            // if (!check_sender(data["data"]["from"])){
-            // 	return;
-            // }
+            
             if (chat.id === data["data"]["to"]){
                 if (!this.checkSig(data, data["data"]["from"])) {
                     alert("Signature check fail");
@@ -1036,9 +991,7 @@ exports.main = function($_, time) {
         }));
 
         $_.ee.addListener($_.MSG.SMP_STEP4, this.checkStatus([$_.STATUS.MPOTR], (data) => {
-            // if (!check_sender(data["data"]["from"])){
-            // 	return;
-            // }
+            
             if (chat.id === data["data"]["to"]){
                 if (!this.checkSig(data, data["data"]["from"])) {
                     alert("Signature check fail");
@@ -1078,6 +1031,12 @@ exports.main = function($_, time) {
 
         }
 
+    
+
+
+
+
+        
 
 
 
@@ -1089,6 +1048,34 @@ exports.main = function($_, time) {
 
 
 
+
+
+
+        $_.ee.addListener($_.MSG.CCEGK_INIT, this.checkStatus([$_.STATUS.MPOTR], () => {
+            if(this.ccegk === undefined){
+                this.ccegk = new CCEGK($_, this, settings);
+                this.ccegk.init();
+            }
+        }));
+
+        $_.ee.addListener($_.MSG.CCEGK, this.checkStatus([$_.STATUS.MPOTR], (data) => {
+            if (!this.checkSig(data, data["data"]["from"])) {
+                alert("Signature check fail");
+                return;
+            }
+
+            let from = data["data"]["from"];
+            let blindedSecret = new BigInteger(data["data"]["blindedSecret"], 16);
+            let idList = data["data"]["idList"];
+            let bsList = [];
+            for (let i = 0; i < data["data"]["bsList"].length; i++){
+                bsList.push(new BigInteger(data["data"]["bsList"][i], 16));
+            }
+            let level = Number(data["data"]["level"]);
+
+            this.ccegk.handleMessage(from, blindedSecret, idList, bsList, level);
+        }));
+        
 
 
 
