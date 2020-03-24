@@ -12,7 +12,9 @@ class Chat {
 		this.key_pub = null;
 
 		this.validUsers = new Map(); // {id: pub_key}
-		
+
+		this.dgsList = new Map(); // {rid: dgs-object} 
+
 		this.getGlobalName = function(id) {
 			return id;
 		};

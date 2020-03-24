@@ -1,7 +1,8 @@
 const Settings = require("./settings"),
       SMP = require("./smp"),
       CSMP = require("./csmp"),
-      CCEGK = require("./ccegk");
+      DGS = require("./dgs");
+
 const settings = new Settings();
 
 exports.settings = settings;
@@ -463,7 +464,7 @@ exports.main = function($_, time) {
                 this.smList[this.room.users[i]] = new SMP($_,this, settings);
             }
 
-            this.ccegk = undefined;
+        
 
             // OldBlue buffers
             this.frontier = [];
@@ -902,22 +903,6 @@ exports.main = function($_, time) {
         }));
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
     	$_.ee.addListener($_.MSG.CSMP_RESULT, this.checkStatus([$_.STATUS.MPOTR], (data) => {
         	// if (!check_sender(data["data"]["from"])){
         	// 	return;
@@ -1031,64 +1016,15 @@ exports.main = function($_, time) {
 
         }
 
-    
-
-
-
-
         
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-        $_.ee.addListener($_.MSG.CCEGK_INIT, this.checkStatus([$_.STATUS.MPOTR], () => {
-            if(this.ccegk === undefined){
-                this.ccegk = new CCEGK($_, this, settings);
-                this.ccegk.init();
+        $_.ee.addListener($_.MSG.DGS_INIT, this.checkStatus([$_.STATUS.MPOTR], () => { 
+            if(!chat.dgsList.has(this.room.id)){
+                chat.dgsList.set(this.room.id, new DGS($_, this, settings));
+                chat.dgsList.get(this.room.id).setup();
             }
         }));
 
-        $_.ee.addListener($_.MSG.CCEGK, this.checkStatus([$_.STATUS.MPOTR], (data) => {
-            if (!this.checkSig(data, data["data"]["from"])) {
-                alert("Signature check fail");
-                return;
-            }
-
-            let from = data["data"]["from"];
-            let blindedSecret = new BigInteger(data["data"]["blindedSecret"], 16);
-            let idList = data["data"]["idList"];
-            let bsList = [];
-            for (let i = 0; i < data["data"]["bsList"].length; i++){
-                bsList.push(new BigInteger(data["data"]["bsList"][i], 16));
-            }
-            let level = Number(data["data"]["level"]);
-
-            this.ccegk.handleMessage(from, blindedSecret, idList, bsList, level);
-        }));
         
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 

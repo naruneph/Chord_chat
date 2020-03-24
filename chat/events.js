@@ -28,9 +28,9 @@ module.exports = function() {
             SMP_STEP4: 'EVENTS.SMP_STEP4',
             CSMP: 'EVENTS.CSMP',
 
-            AUTH_FINISH: 'EVENTS.AUTH_FINISH',
+            //AUTH_FINISH: 'EVENTS.AUTH_FINISH',
 
-            CCEGK_INIT: 'EVENTS.CCEGK_INIT'
+            CCEGK_FINISH: 'EVENTS.CCEGK_FINISH'
         },
 
         /**
@@ -56,8 +56,10 @@ module.exports = function() {
             SMP_STEP3: 'MSG.SMP_STEP3',
             SMP_STEP4: 'MSG.SMP_STEP4',
 
-            CCEGK_INIT: 'MSG.CCEGK_INIT',
-            CCEGK: 'MSG.CCEGK'
+
+            DGS_INIT: 'MSG.DGS_INIT',
+            CCEGK: 'MSG.CCEGK',
+            DGS_PUBKEY_CHECK: 'MSG.DGS_PUBKEY_CHECK'
         },
 
         /**

@@ -62,19 +62,12 @@ function fillLeaves (tree, input){
 
 function CCEGK ($_, context, settings) {
 
-
-    const MODULUS = new BigInteger("FFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD129024E088A67CC74020BBEA63B139B22514A08798E3404DDEF9519B3CD3A431B302B0A6DF25F14374FE1356D6D51C245E485B576625E7EC6F44C42E9A637ED6B0BFF5CB6F406B7EDEE386BFB5A899FA5AE9F24117C4B1FE649286651ECE45B3DC2007CB8A163BF0598DA48361C55D39A69163FA8FD24CF5F83655D23DCA3AD961C62F356208552BB9ED529077096966D670C354E4ABC9804F1746C08CA237327FFFFFFFFFFFFFFFF", 16),
-          //ORDER =   new BigInteger("7FFFFFFFFFFFFFFFE487ED5110B4611A62633145C06E0E68948127044533E63A0105DF531D89CD9128A5043CC71A026EF7CA8CD9E69D218D98158536F92F8A1BA7F09AB6B6A8E122F242DABB312F3F637A262174D31BF6B585FFAE5B7A035BF6F71C35FDAD44CFD2D74F9208BE258FF324943328F6722D9EE1003E5C50B1DF82CC6D241B0E2AE9CD348B1FD47E9267AFC1B2AE91EE51D6CB0E3179AB1042A95DCF6A9483B84B4B36B3861AA7255E4C0278BA36046511B993FFFFFFFFFFFFFFFF", 16),
-          GENERATOR = new BigInteger("2", 16);
-
-    this.randomExponent = function(){
-        return settings.generateNumber().mod(MODULUS);
-    } 
+    this.context = context;
+    this.myID = chat.id;
+    this.secret = settings.randomExponent();
 
     this.init = function() {
-        this.context = context;
-        this.myID = chat.id;
-        this.secret = this.randomExponent();
+
         this.group = null;
         this.level = 0;
         this.mail = new Map();
@@ -128,7 +121,7 @@ function CCEGK ($_, context, settings) {
             for (var i = 0; i < this.subgroups.length; i = i + 2){
                 if(i + 1 < this.subgroups.length){
                     if(this.myIndex === i  || this.myIndex === i+1){
-                        let val = (this.subgroups[siblingGroupIdx].value).modPow(this.subgroups[this.myIndex].value, MODULUS);
+                        let val = (this.subgroups[siblingGroupIdx].value).modPow(this.subgroups[this.myIndex].value, settings.MODULUS);
                         tempList.push(new Tree(null, val, this.subgroups[i], this.subgroups[i+1]));
                     } else {
                         tempList.push(new Tree(null, null, this.subgroups[i], this.subgroups[i+1]));
@@ -148,8 +141,10 @@ function CCEGK ($_, context, settings) {
             this.level++;
 
             if (this.subgroups.length === 1){ 
+
                 this.group = this.subgroups[0];
-                // событие: выработан общий секрет: ФИНИШ
+                $_.ee.emitEvent($_.EVENTS.CCEGK_FINISH);
+
             } else {
                 var nextSiblingGroupIdx = this.findSiblingGroupIndex();
 
@@ -204,13 +199,13 @@ function CCEGK ($_, context, settings) {
 
         var bsList = [];
         Array.from(leavesInfo.values()).forEach(element => bsList.push(element.toString(16)));
-        bsList[idList.indexOf(this.myID)] = GENERATOR.modPow(this.secret, MODULUS).toString(16); 
+        bsList[idList.indexOf(this.myID)] = settings.GENERATOR.modPow(this.secret, settings.MODULUS).toString(16); 
         
         var msg = {
             "type": $_.MSG.CCEGK,
             "data": {
                 from: this.myID,
-                blindedSecret: GENERATOR.modPow(this.subgroups[this.myIndex].value, MODULUS).toString(16),
+                blindedSecret: settings.GENERATOR.modPow(this.subgroups[this.myIndex].value, settings.MODULUS).toString(16),
                 idList: idList,
                 bsList: bsList,
                 level: this.level.toString()
@@ -236,6 +231,24 @@ function CCEGK ($_, context, settings) {
         return sibling;
     };
 
+    $_.ee.addListener($_.MSG.CCEGK, this.context.checkStatus([$_.STATUS.MPOTR], (data) => {
+
+        if (!this.context.checkSig(data, data["data"]["from"])) {
+            alert("Signature check fail");
+            return;
+        }
+
+        let from = data["data"]["from"];
+        let blindedSecret = new BigInteger(data["data"]["blindedSecret"], 16);
+        let idList = data["data"]["idList"];
+        let bsList = [];
+        for (let i = 0; i < data["data"]["bsList"].length; i++){
+            bsList.push(new BigInteger(data["data"]["bsList"][i], 16));
+        }
+        let level = Number(data["data"]["level"]);
+
+        this.handleMessage(from, blindedSecret, idList, bsList, level);
+    }));
 
 }
 

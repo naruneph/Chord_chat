@@ -7,7 +7,7 @@ const ChordModule = require("../lib/chord/chord"),
 	  CryptoModule = require("./crypto"),
 	  BigInt = require("big-integer"),
 	  CSMP = require("./csmp"),
-	  CCEGK = require("./ccegk");
+	  DGS = require("./dgs");
 
 const
 	chat = new ChatModule(),
@@ -59,7 +59,7 @@ function final() {
 	GUI.showChat();
 	putMyData();
 
-	setInterval(function() {
+	setTimeout(function() {
 		for(var rid in chat.rooms)
 			chord.subscribe(rid);
 
@@ -97,7 +97,7 @@ function initialize(id) {
 function changeMPOTR() {
 	let c = CONTEXTS[chat.getRoom().id];
 
-	console.log(c, arguments);
+	//console.log(c, arguments);
 	
 	switch(c.status) {	
 		case E.STATUS.AUTH:
@@ -194,6 +194,8 @@ function quitRoom(rid) {
 		chord.unsubscribe(room.id);
 		delete CONTEXTS[room.id];
 		delete EMITTERS[room.id];
+
+		chat.dgsList.delete(room.id);
 
 		chat.deleteRoom(room.id);
 		GUI.buildRooms(chat.rooms);
@@ -391,22 +393,23 @@ GUI.authByCommunities.addEventListener("click", function(event) {
 	GUI.authBlock.style.display = "none";
 });
 
-GUI.ccegk.addEventListener("click", function(event) {
+GUI.dgs.addEventListener("click", function(event) {
 	GUI.authBlock.style.display = "none";
 
-	let c = CONTEXTS[chat.getRoom().id];
-	let $_ = EMITTERS[chat.getRoom().id];
+	let rid = chat.getRoom().id;
+	let c = CONTEXTS[rid];
+	let $_ = EMITTERS[rid];
 
 	let data = {
-		"type": $_.MSG.CCEGK_INIT,
-		"data": 'MSG.CCEGK_INIT',
-		"room": chat.getRoom().id
+		"type": $_.MSG.DGS_INIT,
+		"data": 'MSG.DGS_INIT',
+		"room": rid
 	};
-	chord.publish(chat.getRoom().id, $_.MSG.BROADCAST, data);	
+	chord.publish(rid, $_.MSG.BROADCAST, data);
 
-	if (c.ccegk === undefined){
-		c.ccegk = new CCEGK($_, c, CryptoModule.settings);
-        c.ccegk.init();
+	if(!chat.dgsList.has(rid)){
+		chat.dgsList.set(rid, new DGS($_, c, CryptoModule.settings));
+		setTimeout(chat.dgsList.get(rid).setup() , 5000);
 	}
 });
 

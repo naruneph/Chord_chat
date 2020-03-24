@@ -24,7 +24,7 @@ function getElems(container, chat, getName = function(id){return id}) {
 	r.quitRoom = r.mesBlock.getElementsByClassName("quitRoom")[0];
 	r.mpOTR = r.mesBlock.getElementsByClassName("mpotr")[0];
 	r.authentication = r.mesBlock.getElementsByClassName("authentication")[0];
-	r.ccegk = r.mesBlock.getElementsByClassName("ccegk")[0];
+	r.dgs = r.mesBlock.getElementsByClassName("dgs")[0];
 
 	r.authBlock = document.getElementById("authBlock");
 	r.authBySMP = r.authBlock.getElementsByTagName("input")[0];
