@@ -15,6 +15,8 @@ class Chat {
 
 		this.dgsList = new Map(); // {rid: dgs-object} 
 
+		this.groupsInfo = new Map(); // {rid: pubkey}
+
 		this.getGlobalName = function(id) {
 			return id;
 		};

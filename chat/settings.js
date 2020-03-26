@@ -43,6 +43,87 @@ class Settings {
         return this.generateNumber().mod(this.ORDER);
     } 
 
+
+    //for DGS
+
+    deserialize_group_sig (sig){
+        let C = [];
+        for (let i = 0; i < sig["C"].length; i++){
+            C.push(new BigInteger(sig["C"][i],16));
+        }
+
+        let Su = [];
+        for (let i = 0; i < sig["Su"].length; i++){
+            Su.push(new BigInteger(sig["Su"][i],16));
+        }
+
+        let Sv = [];
+        for (let i = 0; i < sig["Sv"].length; i++){
+            Sv.push(new BigInteger(sig["Sv"][i],16));
+        }
+
+        let output = {
+            "g_wave": new BigInteger(sig["g_wave"],16),
+            "y_wave": new BigInteger(sig["y_wave"],16),
+            "C": C,
+            "Su": Su,
+            "Sv": Sv
+        }
+
+        return output;
+
+    }
+
+    verify(groupPubKey, msg, g_wave, y_wave, C, Su, Sv) {
+
+        let peersNumber = C.length;
+        let c = C[0];
+        for (let i = 1; i < peersNumber; i++){
+            c = c.xor(C[i]);
+        }
+
+        let result = "";
+
+        result += groupPubKey[0].toString(16);
+        result += g_wave.toString(16);
+        result += y_wave.toString(16);
+
+        let t1, t2, t3, val; 
+        for (let i = 0; i < peersNumber; i++){
+            t1 = y_wave.modPow(C[i], this.MODULUS); 
+            t2 = groupPubKey[0].modPow(Su[i], this.MODULUS); 
+            t3 = this.GENERATOR.modPow(Sv[i], this.MODULUS); 
+
+            val = t1.multiply(t2.multiply(t3).mod(this.MODULUS)).mod(this.MODULUS);
+            result += val.toString(16); 
+        } 
+
+        let z = Array.from(groupPubKey[1].values());
+        for (let i = 0; i < peersNumber; i++){
+            t1 = z[i].modPow(C[i], this.MODULUS);
+            t2 = this.GENERATOR.modPow(Sv[i], this.MODULUS);
+
+            val = t1.multiply(t2).mod(this.MODULUS);
+            result += val.toString(16);
+        } 
+
+        for (let i = 0; i < peersNumber; i++){
+            t1 = g_wave.modPow(C[i], this.MODULUS);
+            t2 = this.GENERATOR.modPow(Su[i], this.MODULUS);
+
+            val = t1.multiply(t2).mod(this.MODULUS);
+            result += val.toString(16);
+        } 
+
+        result += msg; 
+
+        let value = new BigInteger(sha256.hex(result),16);
+
+        let comp = value.compareTo(c) === 0;
+
+        return comp;
+    }
+
 };
 module.exports = Settings;
 

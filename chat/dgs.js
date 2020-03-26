@@ -213,56 +213,89 @@ function DGS ($_, context, settings) {
         return [g_wave, y_wave, C, Su, Sv];
     };
 
-    this.verify = function(groupPubKey, msg, g_wave, y_wave, C, Su, Sv) {
 
-        let peersNumber = C.length;
-        let c = C[0];
-        for (let i = 1; i < peersNumber; i++){
-            c = c.xor(C[i]);
+    this.publish_groupPubKey = function() {
+        var idList = Array.from(this.groupPubKey[1].keys()); 
+        var bsList = [];
+        Array.from(this.groupPubKey[1].values()).forEach(element => bsList.push(element.toString(16))); 
+
+        var pubKeyInfo = {
+            "blindedSecret": this.groupPubKey[0].toString(16),
+            "idList": idList,
+            "bsList": bsList
+        };
+
+        let keys = Object.keys(pubKeyInfo);
+        keys.sort();
+        let result = "";
+        for (let key of keys) {
+            result += pubKeyInfo[key];
         }
 
-        let result = "";
+        pubKeyInfo["group_sig"] = serialize_group_sig(this.sign(result)); 
 
-        result += groupPubKey[0].toString(16);
-        result += g_wave.toString(16);
-        result += y_wave.toString(16);
-
-        let t1, t2, t3, val; 
-        for (let i = 0; i < peersNumber; i++){
-            t1 = y_wave.modPow(C[i], settings.MODULUS); 
-            t2 = groupPubKey[0].modPow(Su[i], settings.MODULUS); 
-            t3 = settings.GENERATOR.modPow(Sv[i], settings.MODULUS); 
-
-            val = t1.multiply(t2.multiply(t3).mod(settings.MODULUS)).mod(settings.MODULUS);
-            result += val.toString(16); 
-        } 
-
-        let z = Array.from(groupPubKey[1].values());
-        for (let i = 0; i < peersNumber; i++){
-            t1 = z[i].modPow(C[i], settings.MODULUS);
-            t2 = settings.GENERATOR.modPow(Sv[i], settings.MODULUS);
-
-            val = t1.multiply(t2).mod(settings.MODULUS);
-            result += val.toString(16);
-        } 
-
-        for (let i = 0; i < peersNumber; i++){
-            t1 = g_wave.modPow(C[i], settings.MODULUS);
-            t2 = settings.GENERATOR.modPow(Su[i], settings.MODULUS);
-
-            val = t1.multiply(t2).mod(settings.MODULUS);
-            result += val.toString(16);
-        } 
-
-        result += msg; 
-
-        let value = new BigInteger(sha256.hex(result),16);
-
-        let comp = value.compareTo(c) === 0;
-
-        return comp;
+        this.context.chord.put(`groupPubKey${this.context.room.id}`, pubKeyInfo);
     };
 
+    async function get_groupPubKey (rid, myPubKey){
+
+        let pubKeyInfo = await chord.get(`groupPubKey${rid}`);
+
+        let sig = settings.deserialize_group_sig(pubKeyInfo["group_sig"]);
+
+        let keys = Object.keys(pubKeyInfo);
+        keys.sort();
+        let result = "";
+        for (let key of keys) {
+            if(key !== "group_sig"){
+                result += pubKeyInfo[key];
+            }
+        }
+
+        let groupPubKey = [];
+        groupPubKey[0] = new BigInteger(pubKeyInfo["blindedSecret"], 16);
+        groupPubKey[1] = new Map();
+        for (let i = 0; i < pubKeyInfo["idList"].length; i++){
+            groupPubKey[1].set(pubKeyInfo["idList"][i], new BigInteger(pubKeyInfo["bsList"][i], 16));
+        }
+
+        res1 = comp(groupPubKey, myPubKey);
+
+        res2 = settings.verify(groupPubKey, result, sig["g_wave"], sig["y_wave"], sig["C"], sig["Su"], sig["Sv"]);
+
+    
+        if (res1 && res2){
+            chat.groupsInfo.set(rid, groupPubKey);
+
+            let data = [rid];
+            E.ee.emitEvent(E.EVENTS.NEW_GROUP, [data]);
+        }
+    };
+
+ 
+    function comp(groupPubKey, myPubKey){
+        if(groupPubKey[0].compareTo(myPubKey[0]) !== 0){
+            return false;
+        }
+
+        var idList1 = Array.from(groupPubKey[1].keys()); 
+        var bsList1 = Array.from(groupPubKey[1].values());
+
+        var idList2 = Array.from(myPubKey[1].keys()); 
+        var bsList2 = Array.from(myPubKey[1].values());
+
+        if(idList1.length !== idList2.length){
+            return false;
+        }
+
+        for(let i = 0; i < idList1.length; i++){
+            if( (idList1[i] !== idList2[i]) || (bsList1[i].compareTo(bsList2[i]) !== 0) ){
+                return false;
+            }
+        }
+
+        return true;
+    };
 
     function SK_LOG (msg, x){ 
         let output = [];
@@ -294,7 +327,33 @@ function DGS ($_, context, settings) {
         return comp;
     }
 
-    
+    function serialize_group_sig (sig){
+        let C = [];
+        for (let i = 0; i < sig[2].length; i++){
+            C.push(sig[2][i].toString(16));
+        }
+
+        let Su = [];
+        for (let i = 0; i < sig[3].length; i++){
+            Su.push(sig[3][i].toString(16));
+        }
+
+        let Sv = [];
+        for (let i = 0; i < sig[4].length; i++){
+            Sv.push(sig[4][i].toString(16));
+        }
+
+        let output = {
+            "g_wave": sig[0].toString(16),
+            "y_wave": sig[1].toString(16),
+            "C": C,
+            "Su": Su,
+            "Sv": Sv
+        }
+
+        return output;
+    }
+
 
     $_.ee.addListener($_.EVENTS.CCEGK_FINISH, this.context.checkStatus([$_.STATUS.MPOTR], () => {
         this.mySecret = this.ccegk.secret;
@@ -333,19 +392,24 @@ function DGS ($_, context, settings) {
                 alert("Another group pubkey view", this.checkedPeers["BAD"]);
                 return;
             } else {
-                //участники договорились о ключе
-               
-                // test
-                // let sig = this.sign(""); 
-                // let rslt = this.verify(this.groupPubKey, "", sig[0], sig[1], sig[2], sig[3], sig[4]);
-                // console.log("rslt", rslt);
+              
+                console.log("договорились");
+
+                if(this.ccegk.group.leaderID() === this.myID){
+                    this.publish_groupPubKey();
+                }
+
+                setTimeout(get_groupPubKey, 3000, this.context.room.id, this.groupPubKey);
+
             }
         }
 
     }));
 
-}
 
+
+}
 module.exports = DGS;
 
- 
+
+

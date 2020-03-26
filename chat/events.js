@@ -30,7 +30,8 @@ module.exports = function() {
 
             //AUTH_FINISH: 'EVENTS.AUTH_FINISH',
 
-            CCEGK_FINISH: 'EVENTS.CCEGK_FINISH'
+            CCEGK_FINISH: 'EVENTS.CCEGK_FINISH',
+            NEW_GROUP: 'EVENTS.NEW_GROUP'
         },
 
         /**
@@ -59,7 +60,8 @@ module.exports = function() {
 
             DGS_INIT: 'MSG.DGS_INIT',
             CCEGK: 'MSG.CCEGK',
-            DGS_PUBKEY_CHECK: 'MSG.DGS_PUBKEY_CHECK'
+            DGS_PUBKEY_CHECK: 'MSG.DGS_PUBKEY_CHECK',
+            NEW_GROUP: 'MSG.NEW_GROUP'
         },
 
         /**

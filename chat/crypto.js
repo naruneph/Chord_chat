@@ -5,6 +5,7 @@ const Settings = require("./settings"),
 
 const settings = new Settings();
 
+
 exports.settings = settings;
 exports.main = function($_, time) {
 /**
@@ -1017,12 +1018,57 @@ exports.main = function($_, time) {
         }
 
         
+
+
+
+
         $_.ee.addListener($_.MSG.DGS_INIT, this.checkStatus([$_.STATUS.MPOTR], () => { 
             if(!chat.dgsList.has(this.room.id)){
                 chat.dgsList.set(this.room.id, new DGS($_, this, settings));
                 chat.dgsList.get(this.room.id).setup();
             }
         }));
+
+        
+        $_.ee.addListener($_.MSG.NEW_GROUP, (data) => { 
+            console.log("heard smth", data);
+    
+            chord.get(`groupPubKey${data["newGroup"]}`).then((pubKeyInfo) => {
+
+                let sig = settings.deserialize_group_sig(pubKeyInfo["group_sig"]);
+
+                let keys = Object.keys(pubKeyInfo);
+                keys.sort();
+                let result = "";
+                for (let key of keys) {
+                    if(key !== "group_sig"){
+                        result += pubKeyInfo[key];
+                    }
+                }
+
+                let groupPubKey = [];
+                groupPubKey[0] = new BigInteger(pubKeyInfo["blindedSecret"], 16);
+                groupPubKey[1] = new Map();
+                for (let i = 0; i < pubKeyInfo["idList"].length; i++){
+                    groupPubKey[1].set(pubKeyInfo["idList"][i], new BigInteger(pubKeyInfo["bsList"][i], 16));
+                }
+
+                let res = settings.verify(groupPubKey, result, sig["g_wave"], sig["y_wave"], sig["C"], sig["Su"], sig["Sv"]);
+
+                if (res){
+                    chat.groupsInfo.set(data["newGroup"], groupPubKey);
+        
+                    let roomList = data["roomList"];
+                    roomList.push(this.room.id);
+        
+                    E.ee.emitEvent(E.EVENTS.NEW_GROUP, [roomList]);
+                }
+
+            });
+            
+        });
+
+        
 
         
 

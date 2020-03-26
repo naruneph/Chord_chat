@@ -32,6 +32,7 @@ global.EMITTERS = EMITTERS;
 global.chat = chat;
 
 
+
 //////////////////////////////////////////////////////////////
 // FUNCTIONS
 //////////////////////////////////////////////////////////////
@@ -548,3 +549,24 @@ ChordModule.prototype.getWRTCString(function(str) {
 // 	// 	}
 // 	// }
 // });
+
+E.ee.addListener(E.EVENTS.NEW_GROUP, (data) => {
+	let $_;
+	let msg = {};
+
+	let rooms = Object.keys(chat.rooms);
+
+	for (let room of rooms){
+		if (data.indexOf(room) === -1){
+
+			$_ = EMITTERS[room];
+
+			msg["type"] = $_.MSG.NEW_GROUP;
+			msg["newGroup"] = data[0];
+			msg["roomList"] = data;
+			msg["room"] = room;
+			
+			chord.publish(room, $_.MSG.BROADCAST, msg);
+		}
+	}
+});
