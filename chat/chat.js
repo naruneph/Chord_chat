@@ -20,6 +20,8 @@ class Chat {
 		this.getGlobalName = function(id) {
 			return id;
 		};
+
+		this.leaved = null;
 	}
 
 	getName(id) {
@@ -99,6 +101,13 @@ class Chat {
 		if(index > -1)
 			room.users.splice(index, 1);
 
+		if((room.users.length === 0) && chat.dgsList.has(room.id)){
+			chat.dgsList.delete(room.id);
+			chord.put(`groupPubKey${room.id}`, undefined);
+		}
+
+		chat.leaved = uid; 
+		
 		return room;
 	}
 

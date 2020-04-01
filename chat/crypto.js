@@ -438,8 +438,8 @@ exports.main = function($_, time) {
         this.reset = function () {
             this["status"] = $_.STATUS.UNENCRYPTED;
             this.shutdown_sended = false;
-            // this.myLongPubKey = undefined;
-            // this.myLongPrivKey = undefined;
+            this.myLongPubKey = undefined;
+            this.myLongPrivKey = undefined;
             this.myEphPrivKey = undefined;
             this.myEphPubKey = undefined;
             this.k_i = undefined;
@@ -800,12 +800,8 @@ exports.main = function($_, time) {
         };
 
         this.stopChat = function () {
-            this.status = $_.STATUS.SHUTDOWN;
 
-            $_.ee.emitEvent($_.EVENTS.MPOTR_SHUTDOWN_START);
-            $_.ee.emitEvent($_.EVENTS.BLOCK_CHAT);
-
-            //this.stopLocal();
+            this.stopLocal();
 
             this.sendShutdown();
         };
@@ -832,12 +828,21 @@ exports.main = function($_, time) {
         // Change status on start of chat
         $_.ee.addListener($_.EVENTS.MPOTR_START, () => {
             this.status = $_.STATUS.MPOTR;
-            //SMP available after mpotr starts
+            
+            if(chat.dgsList.has(this.room.id) && chat.leaved){
+                chat.dgsList.get(this.room.id).removeUser(chat.leaved);
+            }
+
         });
 
         // Reset context on chat shutdown
         $_.ee.addListener($_.EVENTS.MPOTR_SHUTDOWN_FINISH, () => {
             this.reset();
+
+            if (this.amILeader()) {
+                this.start();
+            }
+            
         });
 
         // Init received! Checking current chat status and starting new one!
@@ -873,7 +878,7 @@ exports.main = function($_, time) {
             
         }));
 
-        this.amILeader = function() {
+        this.amILeader = function() { 
             let me = this.chord.id,
                 users = this.room.users,
                 result = true;
@@ -888,26 +893,25 @@ exports.main = function($_, time) {
         };
 
         $_.ee.addListener($_.EVENTS.CONN_LIST_REMOVE, this.checkStatus([$_.STATUS.MPOTR, $_.STATUS.SHUTDOWN], (conn) => {
-            console.log(conn);
-            if (this.amILeader()) {
-                $_.ee.addOnceListener($_.EVENTS.MPOTR_SHUTDOWN_FINISH, () => {
-                    setTimeout(() => {
-                        this.start();
-                    }, 0)
-                });
-            }
 
-            if (this.receiveShutdown(conn.from, null)) {
+            // if (this.amILeader()) {
+            //     $_.ee.addOnceListener($_.EVENTS.MPOTR_SHUTDOWN_FINISH, () => {
+            //         this.start();
+            //     });
+            // }
+
+            if (this.receiveShutdown(conn.from, null)) { 
                 $_.ee.emitEvent($_.EVENTS.MPOTR_SHUTDOWN_FINISH);
                 console.log("mpOTRContext reset");
             }
+ 
         }));
 
 
+        
+
     	$_.ee.addListener($_.MSG.CSMP_RESULT, this.checkStatus([$_.STATUS.MPOTR], (data) => {
-        	// if (!check_sender(data["data"]["from"])){
-        	// 	return;
-        	// }
+        	
             if (!this.checkSig(data, data["data"]["from"])) {
                 alert("Signature check fail");
                 return;
@@ -1022,6 +1026,24 @@ exports.main = function($_, time) {
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        
+
+
         $_.ee.addListener($_.MSG.DGS_INIT, this.checkStatus([$_.STATUS.MPOTR], () => { 
             if(!chat.dgsList.has(this.room.id)){
                 chat.dgsList.set(this.room.id, new DGS($_, this, settings));
@@ -1068,7 +1090,7 @@ exports.main = function($_, time) {
             
         });
 
-        
+
 
         
 

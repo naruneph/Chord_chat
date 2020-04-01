@@ -10,14 +10,11 @@ function DGS ($_, context, settings) {
     this.groupPrivKey = undefined;
     this.groupPubKey = undefined;
     
-    this.checkedPeers = {
-        "GOOD": [],
-        "BAD" : []
-    };
+    this.checkedPeers = undefined;
 
     
 
-    this.setup = function() {
+    this.setup = function () {
 
         if (this.ccegk === undefined){
             this.ccegk = new CCEGK($_, context, settings);
@@ -26,7 +23,7 @@ function DGS ($_, context, settings) {
 
     };
 
-    this.confirmPubKey = function() {
+    this.confirmPubKey = function () {
         var idList = Array.from(this.groupPubKey[1].keys()); 
         var bsList = [];
         Array.from(this.groupPubKey[1].values()).forEach(element => bsList.push(element.toString(16))); 
@@ -61,7 +58,7 @@ function DGS ($_, context, settings) {
         this.context.chord.publish(this.context.room.id, $_.MSG.BROADCAST, msg);
     };
 
-    this.checkPubKey = function(msg) {
+    this.checkPubKey = function (msg) {
 
         let from = msg["data"]["from"];
         let blindedSecret = new BigInteger(msg["data"]["blindedSecret"], 16);
@@ -122,7 +119,7 @@ function DGS ($_, context, settings) {
         return res1 && res2;
     };
 
-    this.sign = function(msg) {
+    this.sign = function (msg) {
         let r = settings.randomExponent();
         let g_wave = settings.GENERATOR.modPow(r, settings.MODULUS);
 
@@ -213,8 +210,7 @@ function DGS ($_, context, settings) {
         return [g_wave, y_wave, C, Su, Sv];
     };
 
-
-    this.publish_groupPubKey = function() {
+    this.publish_groupPubKey = function () {
         var idList = Array.from(this.groupPubKey[1].keys()); 
         var bsList = [];
         Array.from(this.groupPubKey[1].values()).forEach(element => bsList.push(element.toString(16))); 
@@ -236,6 +232,15 @@ function DGS ($_, context, settings) {
 
         this.context.chord.put(`groupPubKey${this.context.room.id}`, pubKeyInfo);
     };
+
+    this.removeUser = function (user) {
+        this.ccegk.startRemoving(user); 
+    };
+
+
+
+
+
 
     async function get_groupPubKey (rid, myPubKey){
 
@@ -273,7 +278,7 @@ function DGS ($_, context, settings) {
     };
 
  
-    function comp(groupPubKey, myPubKey){
+    function comp (groupPubKey, myPubKey){
         if(groupPubKey[0].compareTo(myPubKey[0]) !== 0){
             return false;
         }
@@ -366,6 +371,10 @@ function DGS ($_, context, settings) {
         val.set(this.myID, settings.GENERATOR.modPow(this.ccegk.secret, settings.MODULUS));
         this.groupPubKey[1] = val;
 
+        this.checkedPeers = {
+            "GOOD": [],
+            "BAD" : []
+        };
         this.confirmPubKey();
     }));
 
@@ -393,7 +402,7 @@ function DGS ($_, context, settings) {
                 return;
             } else {
               
-                console.log("договорились");
+                console.warn("договорились");
 
                 if(this.ccegk.group.leaderID() === this.myID){
                     this.publish_groupPubKey();

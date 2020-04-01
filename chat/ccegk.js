@@ -59,14 +59,42 @@ function fillLeaves (tree, input){
     
 }
 
+function findLeafSibling (tree, userID, sibling){
+    if(tree.left){
+        if(tree.left.id === userID){
+            sibling.push(tree.right);
+            return;
+        } else {
+            findLeafSibling(tree.left, userID, sibling);
+        }
+    }
+
+    if(tree.right){
+        if(tree.right.id === userID){
+            sibling.push(tree.left);
+            return;
+        } else {
+            findLeafSibling(tree.right, userID, sibling);
+        }
+    }
+}
+
+function set_leader_value (tree, val){
+    if(tree.right){
+        set_leader_value(tree.right, val);
+    } else {
+        tree.value = val;
+    }
+}
+
 
 function CCEGK ($_, context, settings) {
 
     this.context = context;
     this.myID = chat.id;
-    this.secret = settings.randomExponent();
+    this.secret = settings.randomExponent(); 
 
-    this.init = function() {
+    this.init = function (){
 
         this.group = null;
         this.level = 0;
@@ -105,8 +133,7 @@ function CCEGK ($_, context, settings) {
         }    
     };
 
-
-    this.handleMessage = function(from, blindedSecret, idList, bsList, level){
+    this.handleMessage = function (from, blindedSecret, idList, bsList, level){
 
         if (this.level === level){
 
@@ -192,7 +219,7 @@ function CCEGK ($_, context, settings) {
         }
     };
 
-    this.createAndSendMsg = function(target){
+    this.createAndSendMsg = function (target){
         var leavesInfo = this.subgroups[this.myIndex].leavesInfo();
 
         var idList = Array.from(leavesInfo.keys());
@@ -221,7 +248,7 @@ function CCEGK ($_, context, settings) {
         
     };
 
-    this.findSiblingGroupIndex = function(){
+    this.findSiblingGroupIndex = function (){
         var sibling = null;
         if ((this.myIndex % 2 === 0) && this.subgroups[this.myIndex + 1]){  
             sibling = this.myIndex + 1;
@@ -230,6 +257,223 @@ function CCEGK ($_, context, settings) {
         }
         return sibling;
     };
+
+
+
+
+    this.startRemoving = function (leavedUser){ 
+
+        chat.leaved = null;
+     
+        var sibling = [];
+        findLeafSibling(this.group, leavedUser, sibling);
+        
+        if(sibling[0].leaderID() === this.myID){  
+
+            var bsList = [];
+
+            this.secret = settings.randomExponent(); 
+            local_update_asLeader(sibling[0], this.secret, bsList); 
+
+            var flag = [];
+            flag.push(false);
+
+           
+            global_update_asLeader(this.group, leavedUser, this.myID, bsList, flag); 
+
+            var msg = {
+                "type": $_.MSG.CCEGK_REMOVING,
+                "leavedUser": leavedUser,
+                "leaderID": this.myID,
+                "bsList": bsList,
+                "room": this.context.room.id
+            } 
+    
+ 
+            this.context.signMessage(msg); 
+            this.context.chord.publish(this.context.room.id, $_.MSG.BROADCAST, msg); 
+
+            $_.ee.emitEvent($_.EVENTS.CCEGK_FINISH);
+        } 
+    };
+
+    function local_update_asLeader (tree, val, bsList){ 
+        if(tree.right && tree.left){ 
+            if(tree.right.right){
+                local_update_asLeader(tree.right, val, bsList);
+            } else {
+                tree.right.value = val;
+                bsList.push(settings.GENERATOR.modPow(tree.right.value, settings.MODULUS).toString(16));  
+            }
+            tree.value = tree.left.value.modPow(tree.right.value, settings.MODULUS);
+            bsList.push(settings.GENERATOR.modPow(tree.value, settings.MODULUS).toString(16)); 
+        } else {
+            tree.value = val;
+            bsList.push(settings.GENERATOR.modPow(tree.value, settings.MODULUS).toString(16));
+        }
+    }
+
+    function global_update_asLeader (tree, leavedUserID, myID, bsList, flag){
+        if(tree.left && !flag[0]){
+            if(tree.left.id === leavedUserID){
+
+                                
+                tree.left = tree.right.left;                
+                tree.value = tree.right.value;
+                tree.id = tree.right.id;
+
+                tree.right = tree.right.right;
+
+                flag.pop();
+                flag.push(true); 
+
+                return;
+            } else {
+                global_update_asLeader(tree.left, leavedUserID, myID, bsList, flag); 
+            }
+
+            if(flag[0]){
+                
+                if(tree.left.leavesInfo().has(myID)){ 
+                    tree.value = tree.right.value.modPow(tree.left.value, settings.MODULUS);
+                } else {
+                    tree.value = tree.left.value.modPow(tree.right.value, settings.MODULUS);
+                }
+
+                bsList.push(settings.GENERATOR.modPow(tree.value, settings.MODULUS).toString(16));
+            } 
+
+        }
+
+        if(tree.right && !flag[0]){
+            if(tree.right.id === leavedUserID){
+
+                                            
+                tree.right = tree.left.right;
+                tree.value = tree.left.value;
+                tree.id = tree.left.id;
+
+                tree.left = tree.left.left; 
+
+                flag.pop();
+                flag.push(true);
+                return;
+
+            } else {
+                global_update_asLeader(tree.right, leavedUserID, myID, bsList, flag);  
+            }
+
+            if(flag[0]){
+
+                if(tree.right.leavesInfo().has(myID)){
+                    tree.value = tree.left.value.modPow(tree.right.value, settings.MODULUS);
+                } else {
+                    tree.value = tree.right.value.modPow(tree.left.value, settings.MODULUS);
+                }
+
+                bsList.push(settings.GENERATOR.modPow(tree.value, settings.MODULUS).toString(16)); 
+            }
+        }
+    }
+
+    function update_structure (tree, leavedUserID, bsList, flag){
+        if(tree.left && !flag[0]){
+            if(tree.left.id === leavedUserID){ 
+               
+                tree.left = tree.right.left;                
+                tree.value = tree.right.value;
+                tree.id = tree.right.id;
+
+                tree.right = tree.right.right;
+
+                set_leader_value(tree, bsList[0]);
+
+                flag.pop();
+                flag.push(true); 
+                return;
+
+            } else {
+                update_structure(tree.left, leavedUserID, bsList, flag);
+            }
+
+        }
+
+        if(tree.right && !flag[0]){
+            if(tree.right.id === leavedUserID){ 
+
+                tree.right = tree.left.right;
+                tree.value = tree.left.value;
+                tree.id = tree.left.id;
+
+                tree.left = tree.left.left; 
+
+                set_leader_value(tree, bsList[0]);
+
+                flag.pop();
+                flag.push(true);
+                return;
+
+            } else {
+                update_structure(tree.right, leavedUserID, bsList, flag);
+            }
+
+        }
+
+    }
+
+    function update_data (tree, leaderID, myID, bsList, flag){
+        
+        if (!flag[0]){
+            let leaves = tree.leavesInfo();
+            if (leaves.has(leaderID) && leaves.has(myID)){
+                bsList.pop(); 
+                update_data(tree.left, leaderID, myID, bsList, flag);
+            } else if (leaves.has(leaderID)) {  
+           
+                tree.value = bsList.pop();
+                
+                flag.pop();
+                flag.push(true);
+                return;
+            }
+
+            if(flag[0]){
+                if(tree.left.leavesInfo().has(myID)){
+                    tree.value = tree.right.value.modPow(tree.left.value, settings.MODULUS); 
+                } else {
+                    tree.value = tree.left.value.modPow(tree.right.value, settings.MODULUS); 
+                }
+            }
+        }
+
+        if (!flag[0]){
+            let leaves = tree.leavesInfo();
+            if (leaves.has(leaderID) && leaves.has(myID)){
+
+                update_data(tree.right, leaderID, myID, bsList, flag);
+            } else if (leaves.has(leaderID)) {
+                
+                tree.value = bsList.pop()
+                
+                flag.pop();
+                flag.push(true);
+                return;
+            }
+
+            if(flag[0]){ 
+                if(tree.right.leavesInfo().has(myID)){
+                    tree.value = tree.left.value.modPow(tree.right.value, settings.MODULUS); 
+                } else {
+                    tree.value = tree.right.value.modPow(tree.left.value, settings.MODULUS); 
+                }
+            }
+        }
+    }
+
+
+
+
+
 
     $_.ee.addListener($_.MSG.CCEGK, this.context.checkStatus([$_.STATUS.MPOTR], (data) => {
 
@@ -250,6 +494,27 @@ function CCEGK ($_, context, settings) {
         this.handleMessage(from, blindedSecret, idList, bsList, level);
     }));
 
+    $_.ee.addListener($_.MSG.CCEGK_REMOVING, this.context.checkStatus([$_.STATUS.MPOTR], (data) => { 
+
+        if (!this.context.checkSig(data, data["leaderID"])) {
+            alert("Signature check fail");
+            return;
+        }
+    
+        var bsList = [];
+        data["bsList"].forEach(element => bsList.push(new BigInteger(element, 16)));
+
+        var flag1 = [];
+        flag1.push(false);
+        update_structure(this.group, data["leavedUser"], bsList, flag1);
+
+        var flag2 = [];
+        flag2.push(false);
+        update_data(this.group, data["leaderID"], this.myID, bsList, flag2);
+
+      
+        $_.ee.emitEvent($_.EVENTS.CCEGK_FINISH);
+    }));
 }
 
 module.exports = CCEGK;

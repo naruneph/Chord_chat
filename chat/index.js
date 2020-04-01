@@ -187,7 +187,7 @@ function quitRoom(rid) {
 		if(c.status == E.STATUS.MPOTR) 
 			c.stopChat();
 
-		chord.publish(room.id, E.MSG.CONN_LIST_REMOVE, {
+		chord.publish(room.id, E.MSG.CONN_LIST_REMOVE, { 
 			room: room.id,
 			from: chord.id
 		});
@@ -195,8 +195,11 @@ function quitRoom(rid) {
 		chord.unsubscribe(room.id);
 		delete CONTEXTS[room.id];
 		delete EMITTERS[room.id];
+		
+		if(chat.dgsList.has(room.id)){
+			chat.dgsList.delete(room.id);
+		}
 
-		chat.dgsList.delete(room.id);
 
 		chat.deleteRoom(room.id);
 		GUI.buildRooms(chat.rooms);
@@ -215,6 +218,8 @@ function newPeer(id) {
 		chord.send(id, "-newRoom-", {rid: rid, name: chat.name});
 		GUI.buildRooms(chat.rooms);
 		GUI.showChat();
+
+		chord.send(id, "-groups-" , {groupsInfoKeys: Array.from(chat.groupsInfo.keys())});
 
 		GUI.showNotification(`Пользователь с id ${id} подключен`, 2000);
 	});
@@ -456,9 +461,10 @@ ChordModule.prototype.getWRTCString(function(str) {
 			GUI.updateUsers(room.users);
 	});
 
-	chord.on(E.MSG.CONN_LIST_REMOVE, function(data) {
+	chord.on(E.MSG.CONN_LIST_REMOVE, function(data) { 
 		let e = EMITTERS[data.room],
 			room = chat.removeUserFromRoom(data.from, data.room);
+
 
 		GUI.showNotification(`Пользователь ${chat.getName(data.from)} отключился`);
 
@@ -467,7 +473,8 @@ ChordModule.prototype.getWRTCString(function(str) {
 
 
 		if(e)
-			e.ee.emitEvent(E.EVENT.CONN_LIST_REMOVE, [data]);
+			e.ee.emitEvent(E.EVENTS.CONN_LIST_REMOVE, [data]);
+
 	})
 
 	chord.on(E.MSG.MPOTR_AUTH, function(data) {
@@ -534,6 +541,13 @@ ChordModule.prototype.getWRTCString(function(str) {
 
 		GUI.buildRooms(chat.rooms);
 	});
+
+	chord.on("-groups-", function(data) {
+		for(let i = 0; i < data.groupsInfoKeys.length; i++){
+			// emit $_.MSG.NEW_GROUP for all keys
+		}
+
+	});
 });
 
 //////////////////////////////////////////////////////////////
@@ -570,3 +584,4 @@ E.ee.addListener(E.EVENTS.NEW_GROUP, (data) => {
 		}
 	}
 });
+
