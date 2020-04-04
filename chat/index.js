@@ -6,8 +6,7 @@ const ChordModule = require("../lib/chord/chord"),
 	  toClipboard = require("./clipboard"),
 	  CryptoModule = require("./crypto"),
 	  BigInt = require("big-integer"),
-	  CSMP = require("./csmp"),
-	  DGS = require("./dgs");
+	  CSMP = require("./csmp");
 
 const
 	chat = new ChatModule(),
@@ -219,8 +218,6 @@ function newPeer(id) {
 		GUI.buildRooms(chat.rooms);
 		GUI.showChat();
 
-		chord.send(id, "-groups-" , {groupsInfoKeys: Array.from(chat.groupsInfo.keys())});
-
 		GUI.showNotification(`Пользователь с id ${id} подключен`, 2000);
 	});
 }
@@ -269,26 +266,25 @@ GUI.connNodeButton.addEventListener("click", function(event) {
 });
 
 GUI.addNodeButton.addEventListener("click", function(event) {
-		GUI.showPrompt("Вставьте Answer");
+	GUI.showPrompt("Вставьте Answer");
 
-		time.start("peer addition");
+	time.start("peer addition");
 
-		chord.makeWebRTCconnection(null, function(p) {
-			toClipboard(
-				p.connText,
-				alert,
-				() => GUI.showNotification("Скопировано в буфер обмена")
-			);
+	chord.makeWebRTCconnection(null, function(p) {
+		toClipboard(
+			p.connText,
+			alert,
+			() => GUI.showNotification("Скопировано в буфер обмена")
+		);
 
-			GUI.promptSubmit.onclick = () => p.getAnswer(GUI.promptText.value);
-		},
-		() => GUI.showChat(),
-		id => {
-			time.end("peer addition");
-			setTimeout(() => newPeer(id), 3000);
-		});
-	}
-);
+		GUI.promptSubmit.onclick = () => p.getAnswer(GUI.promptText.value);
+	},
+	() => GUI.showChat(),
+	id => {
+		time.end("peer addition");
+		setTimeout(() => newPeer(id), 3000);
+	});
+});
 
 GUI.getRoomsButton.addEventListener("click", function(event) {
 	GUI.showPrompt("Введите ID");
@@ -398,28 +394,6 @@ GUI.authBySMP.addEventListener("click", function(event) {
 GUI.authByCommunities.addEventListener("click", function(event) {
 	GUI.authBlock.style.display = "none";
 });
-
-GUI.dgs.addEventListener("click", function(event) {
-	GUI.authBlock.style.display = "none";
-
-	let rid = chat.getRoom().id;
-	let c = CONTEXTS[rid];
-	let $_ = EMITTERS[rid];
-
-	let data = {
-		"type": $_.MSG.DGS_INIT,
-		"data": 'MSG.DGS_INIT',
-		"room": rid
-	};
-	chord.publish(rid, $_.MSG.BROADCAST, data);
-
-	if(!chat.dgsList.has(rid)){
-		chat.dgsList.set(rid, new DGS($_, c, CryptoModule.settings));
-		setTimeout(chat.dgsList.get(rid).setup() , 5000);
-	}
-});
-
-
 
 
 //////////////////////////////////////////////////////////////
@@ -542,46 +516,10 @@ ChordModule.prototype.getWRTCString(function(str) {
 		GUI.buildRooms(chat.rooms);
 	});
 
-	chord.on("-groups-", function(data) {
-		for(let i = 0; i < data.groupsInfoKeys.length; i++){
-			// emit $_.MSG.NEW_GROUP for all keys
-		}
-
-	});
 });
 
-//////////////////////////////////////////////////////////////
-///AUTH EVENTS
-//////////////////////////////////////////////////////////////
 
-// E.ee.addListener(E.EVENTS.AUTH_FINISH, (room) => {
-// 
-// 	// for (var i = 0; i < room.users.length; i++){
-// 	// 	if(!chat.validUsers.has(room.users[i])){
-// 	// 		flag = false;
-// 	// 		quitRoom(room.id)
-// 	// 	}
-// 	// }
-// });
-
-E.ee.addListener(E.EVENTS.NEW_GROUP, (data) => {
-	let $_;
-	let msg = {};
-
-	let rooms = Object.keys(chat.rooms);
-
-	for (let room of rooms){
-		if (data.indexOf(room) === -1){
-
-			$_ = EMITTERS[room];
-
-			msg["type"] = $_.MSG.NEW_GROUP;
-			msg["newGroup"] = data[0];
-			msg["roomList"] = data;
-			msg["room"] = room;
-			
-			chord.publish(room, $_.MSG.BROADCAST, msg);
-		}
-	}
+E.ee.addListener(E.EVENTS.QUIT_ROOM, (rid) => {
+	quitRoom(rid);
 });
 

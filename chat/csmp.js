@@ -65,12 +65,14 @@ function CSMP($_, context) {
     this.choose_aim = function () {
         if (this.amount_unknown <= 0) { 
             this.status = $_.CSMP_STATUS.DONE;
+
             this.ftime = +new Date();
             console.log("info", (this.ftime - this.stime).toString());
             this.sum += this.ftime - this.stime;
             this.stime = 0;
 
-            E.ee.emitEvent(E.EVENTS.AUTH_FINISH, [this.context.room]);
+            $_.ee.emitEvent($_.EVENTS.AUTH_FINISH);
+
             return 0;
         }
 
@@ -91,7 +93,6 @@ function CSMP($_, context) {
 
                 if (this.result[this.circle[i]] === $_.CSMP_RESULTS.GOOD) {
                     this.status = $_.CSMP_STATUS.DONE;
-                    E.ee.emitEvent(E.EVENTS.AUTH_FINISH, [this.context.room]);
 
                     return 0;
                 }
@@ -166,6 +167,8 @@ function CSMP($_, context) {
                             
                             this.amount_unknown -= 1;
 
+                            if(this.amount_unknown <= 0) {$_.ee.emitEvent($_.EVENTS.AUTH_FINISH);}
+
                             if (this.mail[peer] !== undefined) {
                                 this.handleMessage(peer, this.mail[peer]);
                             }
@@ -188,6 +191,8 @@ function CSMP($_, context) {
                             this.groups[peer] = results['bad'];
                             
                             this.amount_unknown -= 1;
+
+                            if(this.amount_unknown <= 0) {$_.ee.emitEvent($_.EVENTS.AUTH_FINISH);}
 
                             if (this.mail[peer] !== undefined) {
                                 this.handleMessage(peer, this.mail[peer]);
@@ -214,7 +219,9 @@ function CSMP($_, context) {
                             this.result[from] = $_.CSMP_RESULTS.BAD;
                             this.groups[from] = this.groups[peer];
 
-                            this.amount_unknown -= 1;
+                            this.amount_unknown -= 1; 
+                            
+                            if(this.amount_unknown <= 0) {$_.ee.emitEvent($_.EVENTS.AUTH_FINISH);}
                         }
 
                         // Save results of 'from'

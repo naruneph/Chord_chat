@@ -829,6 +829,22 @@ exports.main = function($_, time) {
         $_.ee.addListener($_.EVENTS.MPOTR_START, () => {
             this.status = $_.STATUS.MPOTR;
             
+
+
+            // AFTER MPOTR STARTS
+            // if(!chat.dgsList.has(this.room.id) && this.amILeader()){
+            //     let data = {
+            //         "type": $_.MSG.DGS_INIT,
+            //         "room": this.room.id
+            //     };
+            //     this.chord.publish(this.room.id, $_.MSG.BROADCAST, data);
+
+            //     chat.dgsList.set(this.room.id, new DGS($_, this, settings));
+            //     setTimeout(chat.dgsList.get(this.room.id).setup() , 5000);
+
+            // }
+
+            // if someone leaved recompute group secret
             if(chat.dgsList.has(this.room.id) && chat.leaved){
                 chat.dgsList.get(this.room.id).removeUser(chat.leaved);
             }
@@ -837,12 +853,11 @@ exports.main = function($_, time) {
 
         // Reset context on chat shutdown
         $_.ee.addListener($_.EVENTS.MPOTR_SHUTDOWN_FINISH, () => {
-            this.reset();
-
+            this.reset();   
+            
             if (this.amILeader()) {
                 this.start();
             }
-            
         });
 
         // Init received! Checking current chat status and starting new one!
@@ -893,12 +908,6 @@ exports.main = function($_, time) {
         };
 
         $_.ee.addListener($_.EVENTS.CONN_LIST_REMOVE, this.checkStatus([$_.STATUS.MPOTR, $_.STATUS.SHUTDOWN], (conn) => {
-
-            // if (this.amILeader()) {
-            //     $_.ee.addOnceListener($_.EVENTS.MPOTR_SHUTDOWN_FINISH, () => {
-            //         this.start();
-            //     });
-            // }
 
             if (this.receiveShutdown(conn.from, null)) { 
                 $_.ee.emitEvent($_.EVENTS.MPOTR_SHUTDOWN_FINISH);
@@ -1044,51 +1053,74 @@ exports.main = function($_, time) {
         
 
 
-        $_.ee.addListener($_.MSG.DGS_INIT, this.checkStatus([$_.STATUS.MPOTR], () => { 
-            if(!chat.dgsList.has(this.room.id)){
+        $_.ee.addListener($_.EVENTS.DGS_INIT, this.checkStatus([$_.STATUS.MPOTR], () => { 
+            if (!chat.dgsList.has(this.room.id)){
                 chat.dgsList.set(this.room.id, new DGS($_, this, settings));
                 chat.dgsList.get(this.room.id).setup();
             }
         }));
 
-        
-        $_.ee.addListener($_.MSG.NEW_GROUP, (data) => { 
-            console.log("heard smth", data);
-    
-            chord.get(`groupPubKey${data["newGroup"]}`).then((pubKeyInfo) => {
+        $_.ee.addListener($_.EVENTS.AUTH_FINISH, this.checkStatus([$_.STATUS.MPOTR], () =>{
+            console.warn("AUTH FINISHED");
 
-                let sig = settings.deserialize_group_sig(pubKeyInfo["group_sig"]);
-
-                let keys = Object.keys(pubKeyInfo);
-                keys.sort();
-                let result = "";
-                for (let key of keys) {
-                    if(key !== "group_sig"){
-                        result += pubKeyInfo[key];
-                    }
+            var flag = true;
+            for(var i = 0; i < this.room.users.length; i++){
+                if(!chat.validUsers.has(this.room.users[i])){
+                    flag = false;
                 }
+            }
+            if(!flag){
+                GUI.showNotification(`Беседа "${this.room.name}" небезопасна`, 3000);
+                E.ee.emitEvent(E.EVENTS.QUIT_ROOM, [this.room.id]);
+            } else {
+                GUI.showNotification(`Аутентификация в беседе "${this.room.name}" прошла успешно`, 3000);
+                console.log("DGS: start");
+                $_.ee.emitEvent($_.EVENTS.DGS_INIT);
+            }
 
-                let groupPubKey = [];
-                groupPubKey[0] = new BigInteger(pubKeyInfo["blindedSecret"], 16);
-                groupPubKey[1] = new Map();
-                for (let i = 0; i < pubKeyInfo["idList"].length; i++){
-                    groupPubKey[1].set(pubKeyInfo["idList"][i], new BigInteger(pubKeyInfo["bsList"][i], 16));
-                }
 
-                let res = settings.verify(groupPubKey, result, sig["g_wave"], sig["y_wave"], sig["C"], sig["Su"], sig["Sv"]);
 
-                if (res){
-                    chat.groupsInfo.set(data["newGroup"], groupPubKey);
-        
-                    let roomList = data["roomList"];
-                    roomList.push(this.room.id);
-        
-                    E.ee.emitEvent(E.EVENTS.NEW_GROUP, [roomList]);
-                }
-
-            });
             
-        });
+        }));
+
+        
+        // $_.ee.addListener($_.MSG.NEW_GROUP, (data) => { 
+        //     console.log("heard smth", data);
+    
+        //     chord.get(`groupPubKey${data["newGroup"]}`).then((pubKeyInfo) => {
+
+        //         let sig = settings.deserialize_group_sig(pubKeyInfo["group_sig"]);
+
+        //         let keys = Object.keys(pubKeyInfo);
+        //         keys.sort();
+        //         let result = "";
+        //         for (let key of keys) {
+        //             if(key !== "group_sig"){
+        //                 result += pubKeyInfo[key];
+        //             }
+        //         }
+
+        //         let groupPubKey = [];
+        //         groupPubKey[0] = new BigInteger(pubKeyInfo["blindedSecret"], 16);
+        //         groupPubKey[1] = new Map();
+        //         for (let i = 0; i < pubKeyInfo["idList"].length; i++){
+        //             groupPubKey[1].set(pubKeyInfo["idList"][i], new BigInteger(pubKeyInfo["bsList"][i], 16));
+        //         }
+
+        //         let res = settings.verify(groupPubKey, result, sig["g_wave"], sig["y_wave"], sig["C"], sig["Su"], sig["Sv"]);
+
+        //         if (res){
+        //             chat.groupsInfo.set(data["newGroup"], groupPubKey);
+        
+        //             let roomList = data["roomList"];
+        //             roomList.push(this.room.id);
+        
+        //             E.ee.emitEvent(E.EVENTS.NEW_GROUP, [roomList]);
+        //         }
+
+        //     });
+            
+        // });
 
 
 

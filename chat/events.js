@@ -28,12 +28,15 @@ module.exports = function() {
             SMP_STEP4: 'EVENTS.SMP_STEP4',
             CSMP: 'EVENTS.CSMP',
 
-            //AUTH_FINISH: 'EVENTS.AUTH_FINISH',
-
+            AUTH_FINISH: 'EVENTS.AUTH_FINISH',
+            
             CCEGK_FINISH: 'EVENTS.CCEGK_FINISH',
-            NEW_GROUP: 'EVENTS.NEW_GROUP',
+            DGS_INIT: 'EVENTS.DGS_INIT',
+            DGS_PUBKEY_CHECK: 'EVENTS.DGS_PUBKEY_CHECK',
 
-            STATUS_MPOTR: 'EVENTS.STATUS_MPOTR'
+            QUIT_ROOM: 'EVENTS.QUIT_ROOM'
+
+            
         },
 
         /**
@@ -60,10 +63,8 @@ module.exports = function() {
             SMP_STEP4: 'MSG.SMP_STEP4',
 
 
-            DGS_INIT: 'MSG.DGS_INIT',
-            CCEGK: 'MSG.CCEGK',
             DGS_PUBKEY_CHECK: 'MSG.DGS_PUBKEY_CHECK',
-            NEW_GROUP: 'MSG.NEW_GROUP',
+            CCEGK: 'MSG.CCEGK',
             CCEGK_REMOVING: 'MSG.CCEGK_REMOVING'
         },
 

@@ -15,8 +15,6 @@ class Chat {
 
 		this.dgsList = new Map(); // {rid: dgs-object} 
 
-		this.groupsInfo = new Map(); // {rid: pubkey}
-
 		this.getGlobalName = function(id) {
 			return id;
 		};
@@ -101,9 +99,9 @@ class Chat {
 		if(index > -1)
 			room.users.splice(index, 1);
 
-		if((room.users.length === 0) && chat.dgsList.has(room.id)){
+		if((room.users.length === 0) && chat.dgsList.has(room.id)){ 
 			chat.dgsList.delete(room.id);
-			chord.put(`groupPubKey${room.id}`, undefined);
+			chord.put(`groupPubKey${room.id}`, ""); 
 		}
 
 		chat.leaved = uid; 

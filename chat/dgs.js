@@ -12,6 +12,8 @@ function DGS ($_, context, settings) {
     
     this.checkedPeers = undefined;
 
+    this.mail = [];
+
     
 
     this.setup = function () {
@@ -54,8 +56,8 @@ function DGS ($_, context, settings) {
         msg['sk_memberSecret'] = [sig2[0].toString(16), sig2[1].toString(16)];
 
 
-        this.context.signMessage(msg);
-        this.context.chord.publish(this.context.room.id, $_.MSG.BROADCAST, msg);
+        this.context.signMessage(msg); 
+        this.context.chord.publish(this.context.room.id, $_.MSG.BROADCAST, msg); 
     };
 
     this.checkPubKey = function (msg) {
@@ -216,6 +218,8 @@ function DGS ($_, context, settings) {
         Array.from(this.groupPubKey[1].values()).forEach(element => bsList.push(element.toString(16))); 
 
         var pubKeyInfo = {
+            "type": "groupPubKey",
+            "roomId": this.context.room.id,
             "blindedSecret": this.groupPubKey[0].toString(16),
             "idList": idList,
             "bsList": bsList
@@ -268,12 +272,10 @@ function DGS ($_, context, settings) {
 
         res2 = settings.verify(groupPubKey, result, sig["g_wave"], sig["y_wave"], sig["C"], sig["Su"], sig["Sv"]);
 
-    
-        if (res1 && res2){
-            chat.groupsInfo.set(rid, groupPubKey);
-
-            let data = [rid];
-            E.ee.emitEvent(E.EVENTS.NEW_GROUP, [data]);
+        if(!(res1 && res2)){
+            //опубликовавший - нарушитель - нужно его удалить из группы
+        } else {
+            console.log("published key is valid")
         }
     };
 
@@ -371,49 +373,67 @@ function DGS ($_, context, settings) {
         val.set(this.myID, settings.GENERATOR.modPow(this.ccegk.secret, settings.MODULUS));
         this.groupPubKey[1] = val;
 
-        this.checkedPeers = {
-            "GOOD": [],
-            "BAD" : []
-        };
         this.confirmPubKey();
     }));
 
     $_.ee.addListener($_.MSG.DGS_PUBKEY_CHECK, this.context.checkStatus([$_.STATUS.MPOTR], (data) => {
+
+        this.mail.push(data);
         
-        if (!this.context.checkSig(data, data["data"]["from"])) {
-            alert("Signature check fail");
-            return;
+        if(this.mail.length === this.context.room.users.length){
+            $_.ee.emitEvent($_.EVENTS.DGS_PUBKEY_CHECK);
         }
-        delete data['sig'];
-
-        
-        if(this.checkPubKey(data)){
-            this.checkedPeers["GOOD"].push(data["data"]["from"]);
-        } else {
-            this.checkedPeers["BAD"].push(data["data"]["from"]);
-        }
-
-        let peersNumber = Array.from(this.groupPubKey[1].keys()).length;
-        
-        
-        if(this.checkedPeers["GOOD"].length + this.checkedPeers["BAD"].length + 1 === peersNumber){
-            if(this.checkedPeers["BAD"].length){
-                alert("Another group pubkey view", this.checkedPeers["BAD"]);
-                return;
-            } else {
-              
-                console.warn("договорились");
-
-                if(this.ccegk.group.leaderID() === this.myID){
-                    this.publish_groupPubKey();
-                }
-
-                setTimeout(get_groupPubKey, 3000, this.context.room.id, this.groupPubKey);
-
-            }
-        }
-
     }));
+
+    $_.ee.addListener($_.EVENTS.DGS_PUBKEY_CHECK, this.context.checkStatus([$_.STATUS.MPOTR], () => {
+        this.checkedPeers = {
+            "GOOD": [],
+            "BAD" : []
+        };
+
+        while(this.mail.length){
+            var data = this.mail.pop();
+
+            if (!this.context.checkSig(data, data["data"]["from"])) {
+                alert("Signature check fail");
+                return;
+            }
+            delete data['sig'];
+
+            
+            if(this.checkPubKey(data)){
+                this.checkedPeers["GOOD"].push(data["data"]["from"]);
+            } else {
+                this.checkedPeers["BAD"].push(data["data"]["from"]);
+            }
+
+            let peersNumber = Array.from(this.groupPubKey[1].keys()).length;
+            
+            
+            if(this.checkedPeers["GOOD"].length + this.checkedPeers["BAD"].length + 1 === peersNumber){
+                if(this.checkedPeers["BAD"].length){
+                    alert("Another group pubkey view", this.checkedPeers["BAD"]);
+                    return;
+                } else {
+                    
+                    console.warn("DGS: success");
+
+                    if(this.ccegk.group.leaderID() === this.myID){ 
+                        this.publish_groupPubKey();
+                    }
+
+                    setTimeout(get_groupPubKey, 5000, this.context.room.id, this.groupPubKey);
+
+                }
+            }
+
+        }
+        
+    }));
+        
+        
+
+ 
 
 
 

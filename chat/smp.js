@@ -120,6 +120,9 @@ function SMP($_, context, settings) {
                 }
                 this.context.csmp.checked_by_me.push(this.friendID);
                 this.context.csmp.amount_unknown -= 1;
+
+                if(this.context.csmp.amount_unknown <= 0) {$_.ee.emitEvent($_.EVENTS.AUTH_FINISH);}
+
                 this.reset();
                 if (this.context.csmp.ready_to_send_res() === 1){
                     this.context.csmp.sendResults();
@@ -141,11 +144,13 @@ function SMP($_, context, settings) {
 
                     this.context.csmp.result[this.friendID] = $_.CSMP_RESULTS.GOOD;
                     this.context.csmp.status = $_.CSMP_STATUS.DONE;
-
-                    // E.ee.emitEvent(E.EVENTS.AUTH_FINISH, [this.context.room]);
+ 
 
                     this.context.csmp.groups[this.friendID] = this.myID;
                     this.context.csmp.amount_unknown -= 1;
+
+                    if(this.context.csmp.amount_unknown <= 0) {$_.ee.emitEvent($_.EVENTS.AUTH_FINISH);}
+                    
                     this.context.csmp.checked_by_me.push(this.friendID);
 
                     if (this.context.csmp.ready_to_send_res() === 1){
@@ -155,7 +160,6 @@ function SMP($_, context, settings) {
                         this.context.csmp.handleMessage(this.friendID, this.context.csmp.mail[this.friendID]);
                     }
 
-                    E.ee.emitEvent(E.EVENTS.AUTH_FINISH, [this.context.room]);
                 } else {
     
                     if(chat.validUsers.has(this.friendID) && (chat.validUsers.get(this.friendID) === this.friend_pubKey)){
@@ -165,6 +169,9 @@ function SMP($_, context, settings) {
                     this.context.csmp.status = $_.CSMP_STATUS.FREE;
                     this.context.csmp.groups[this.friendID] = this.friendID;
                     this.context.csmp.amount_unknown -= 1;
+
+                    if(this.context.csmp.amount_unknown <= 0) {$_.ee.emitEvent($_.EVENTS.AUTH_FINISH);}
+
                     this.context.csmp.checked_by_me.push(this.friendID);
                     if (this.context.csmp.ready_to_send_res() === 1){
                         this.context.csmp.sendResults();
@@ -184,6 +191,8 @@ function SMP($_, context, settings) {
                 break;
         }
         GUI.updateUsers();
+        
+
 
     };
 

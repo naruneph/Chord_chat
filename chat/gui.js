@@ -24,7 +24,6 @@ function getElems(container, chat, getName = function(id){return id}) {
 	r.quitRoom = r.mesBlock.getElementsByClassName("quitRoom")[0];
 	r.mpOTR = r.mesBlock.getElementsByClassName("mpotr")[0];
 	r.authentication = r.mesBlock.getElementsByClassName("authentication")[0];
-	r.dgs = r.mesBlock.getElementsByClassName("dgs")[0];
 
 	r.authBlock = document.getElementById("authBlock");
 	r.authBySMP = r.authBlock.getElementsByTagName("input")[0];
@@ -73,10 +72,11 @@ function getElems(container, chat, getName = function(id){return id}) {
 		html = r.makeOption("Мои собеседники");
 
 		for(var uid of users) {
-			if(validUsers instanceof Map && validUsers.has(uid))
+			if(validUsers instanceof Map && validUsers.has(uid)){
 				html += r.makeOption_green(`${getName(uid)} (${uid})`);
-			else
-			html += r.makeOption_red(`${getName(uid)} (${uid})`);
+			} else {
+				html += r.makeOption_red(`${getName(uid)} (${uid})`);
+			}
 		}
 
 		r.uList.innerHTML = html;
