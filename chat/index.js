@@ -6,7 +6,8 @@ const ChordModule = require("../lib/chord/chord"),
 	  toClipboard = require("./clipboard"),
 	  CryptoModule = require("./crypto"),
 	  BigInt = require("big-integer"),
-	  CSMP = require("./csmp");
+	  CSMP = require("./csmp"),
+	  Chains = require("./chains");
 
 const
 	chat = new ChatModule(),
@@ -391,8 +392,23 @@ GUI.authBySMP.addEventListener("click", function(event) {
 	
 });
 
-GUI.authByCommunities.addEventListener("click", function(event) {
+GUI.authByGroups.addEventListener("click", function(event) {
 	GUI.authBlock.style.display = "none";
+	let c = CONTEXTS[chat.getRoom().id];
+	let $_ = EMITTERS[chat.getRoom().id];
+
+	let data = {
+		"type": $_.MSG.CHAINS_INIT,
+		"data": 'CHAINS_INIT',
+		"room": chat.getRoom().id
+	};
+	chord.publish(chat.getRoom().id, $_.MSG.BROADCAST, data);
+
+	if (c.chains === undefined){
+		c.chains = new Chains($_, c);
+		c.chains.init();
+	}
+
 });
 
 
@@ -523,3 +539,156 @@ E.ee.addListener(E.EVENTS.QUIT_ROOM, (rid) => {
 	quitRoom(rid);
 });
 
+E.ee.addListener(E.EVENTS.CHAINS_PROOF_INIT, (data) =>{
+
+	var aim = data[0];
+	var auth_room = data[1];
+	var chains = data[2];
+
+
+	for(var chain of chains){
+
+		var rids = [];
+		for(var group of chain){
+			rids.push(group.roomId);
+		}
+
+		var c = CONTEXTS[rids[0]];
+		var $_ = EMITTERS[rids[0]];
+
+		var msg = {
+			"type": $_.MSG.CHAINS_PROOF,
+			"from": chat.id,
+			"data":{
+				id: chat.id,
+				pubKey_fingerprint: cryptico.publicKeyID(chat.key_pub.toString(16)),
+				aim: aim,
+				auth_room: auth_room,
+				chain: rids
+			},
+			"room": rids[0]
+		};
+
+		chat.dgsList.get(rids[0]).createSignature(msg);
+
+		c.signMessage(msg); 
+		chord.publish(rids[0], $_.MSG.BROADCAST, msg);
+
+	}
+
+});
+
+E.ee.addListener(E.EVENTS.CHAINS_SEND_MSG, (data) =>{
+
+	var msg = data.data;
+	var nextRoom = data.room;
+
+	var c = CONTEXTS[nextRoom];
+	var $_ = EMITTERS[nextRoom];
+
+	msg["type"] = $_.MSG.CHAINS_PROOF;
+	msg["from"] = chat.id;
+	msg["room"] = nextRoom;
+	
+	chat.dgsList.get(nextRoom).createSignature(msg);
+
+	c.signMessage(msg); 
+	chord.publish(nextRoom, $_.MSG.BROADCAST, msg);
+
+});
+
+E.ee.addListener(E.EVENTS.CHAINS_PROOF_START, () =>{
+	data = chat.mailBuf[0];
+	var $_ = EMITTERS[data["room"]];
+	$_.ee.emitEvent($_.EVENTS.CHAINS_PROOF, [data]);
+});
+
+E.ee.addListener(E.EVENTS.CHAINS_PROOF_FINISH, () =>{
+	chat.mailBuf.shift();
+	if(chat.mailBuf.length){
+		E.ee.emitEvent(E.EVENTS.CHAINS_PROOF_START);
+	}
+});
+
+E.ee.addListener(E.EVENTS.CHAINS_PROOF_RECEIVED, (data) =>{
+
+	var user_id = data["data"]["id"];
+	var user_pubKey_fingerprint = data["data"]["pubKey_fingerprint"];
+
+	var auth_room = data["data"]["auth_room"];
+
+	var chain = data["data"]["chain"];
+	chain.reverse();
+
+	if(Object.keys(chat.rooms).includes(auth_room)){
+
+		var c = CONTEXTS[auth_room];
+		var $_ = EMITTERS[auth_room];
+		 
+		if(c.chains.myTargets[user_id]){//my target
+			if(c.chains.myTargets[user_id][chain] === null){
+
+				c.chains.myTargets[user_id][chain] = user_pubKey_fingerprint;
+				if(!Object.values(c.chains.myTargets[user_id]).includes(null)){
+
+					var info = [user_id, true];
+
+					$_.ee.emitEvent($_.EVENTS.CHAINS_CHECK_PROOFS, [info]);
+				}
+
+			}
+		} else {// i am target
+
+			if(!c.chains.iAmTarget[user_id]){
+
+				c.circleChains.result[user_id] = $_.CC_RESULTS.IN_PROCESS;
+
+				c.cgList[user_id].init(user_id, c.chains.groupsInfo);
+
+				c.chains.iAmTarget[user_id] = {};
+				c.cgList[user_id].chains.forEach(chain => {
+					var rids = [];
+					for(var group of chain){
+						rids.push(group.roomId);
+					}
+					c.chains.iAmTarget[user_id][rids] = null;
+				});
+				
+			}
+
+			if(c.chains.iAmTarget[user_id][chain] === null){
+
+				c.chains.iAmTarget[user_id][chain] = user_pubKey_fingerprint;
+				if(!Object.values(c.chains.iAmTarget[user_id]).includes(null)){
+
+					var info = [user_id, false];
+					$_.ee.emitEvent($_.EVENTS.CHAINS_CHECK_PROOFS, [info]);
+				}
+
+				c = CONTEXTS[chain[0]];
+				$_ = EMITTERS[chain[0]];
+
+				var msg = {
+					"type": $_.MSG.CHAINS_PROOF,
+					"from": chat.id,
+					"data":{
+						id: chat.id,
+						pubKey_fingerprint: cryptico.publicKeyID(chat.key_pub.toString(16)),
+						aim: user_id,
+						auth_room: auth_room,
+						chain: chain
+					},
+					"room": chain[0]
+				}
+				
+				chat.dgsList.get(chain[0]).createSignature(msg);
+				c.signMessage(msg); 
+				chord.publish(chain[0], $_.MSG.BROADCAST, msg);
+
+			}
+		}
+	}
+
+});
+
+  

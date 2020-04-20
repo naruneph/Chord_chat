@@ -1,7 +1,10 @@
 const Settings = require("./settings"),
       SMP = require("./smp"),
       CSMP = require("./csmp"),
-      DGS = require("./dgs");
+      DGS = require("./dgs"), 
+      ChainOfGroups = require("./chainOfGroups"),
+      Chains = require("./chains"),
+      CircleChains = require("./circleChains");
 
 const settings = new Settings();
 
@@ -458,12 +461,29 @@ exports.main = function($_, time) {
             this.sig = undefined;
             this.c_i = undefined;
 
+            this.ready_for_dgs = [];
+
+
+            // Circle SMP Auth
+            this.csmp = undefined;
+            //for SMP
             this.secret = undefined;
             this.smList = {};
-            this.csmp = undefined;
             for (var i = 0; i < this.room.users.length; i++){
-                this.smList[this.room.users[i]] = new SMP($_,this, settings);
+                this.smList[this.room.users[i]] = new SMP($_, this, settings);
             }
+
+
+            // Circle chains Auth
+            this.chains = undefined; //answers if auth is possible or not, if possible - creates circle
+            this.circleChains = undefined;
+            //for ChainOfGroups
+            this.cgList = {};
+            for (var i = 0; i < this.room.users.length; i++){
+                this.cgList[this.room.users[i]] = new ChainOfGroups($_, this);
+            }
+
+            
 
         
 
@@ -816,7 +836,7 @@ exports.main = function($_, time) {
             let authenticationPhase = this.InitAuthenticationPhase();
 
             authenticationPhase.then(() => {
-                console.log('Success!');
+                console.log('mpOTR: Success!');
             }).catch((err) => {
                 //alert(err);
                 console.log(err);
@@ -829,20 +849,6 @@ exports.main = function($_, time) {
         $_.ee.addListener($_.EVENTS.MPOTR_START, () => {
             this.status = $_.STATUS.MPOTR;
             
-
-
-            // AFTER MPOTR STARTS
-            // if(!chat.dgsList.has(this.room.id) && this.amILeader()){
-            //     let data = {
-            //         "type": $_.MSG.DGS_INIT,
-            //         "room": this.room.id
-            //     };
-            //     this.chord.publish(this.room.id, $_.MSG.BROADCAST, data);
-
-            //     chat.dgsList.set(this.room.id, new DGS($_, this, settings));
-            //     setTimeout(chat.dgsList.get(this.room.id).setup() , 5000);
-
-            // }
 
             // if someone leaved recompute group secret
             if(chat.dgsList.has(this.room.id) && chat.leaved){
@@ -916,11 +922,7 @@ exports.main = function($_, time) {
  
         }));
 
-
-        
-
     	$_.ee.addListener($_.MSG.CSMP_RESULT, this.checkStatus([$_.STATUS.MPOTR], (data) => {
-        	
             if (!this.checkSig(data, data["data"]["from"])) {
                 alert("Signature check fail");
                 return;
@@ -1005,15 +1007,7 @@ exports.main = function($_, time) {
             }
         }));
 
-
-        /**
-         * Init SMP, Ask to enter a secret 
-         * @param {string} friend person we wanna ask
-         * @param {Integer} init 1 if send, 0 if respond
-         * @param input Optional the letter Bob receives on first step
-         */
         this.smp_start = function(friend, init, input) {
-        
         	if (this.secret === undefined){
         		this.secret = prompt('Пароль', '');
 
@@ -1027,32 +1021,226 @@ exports.main = function($_, time) {
         		this.csmp.status = $_.CSMP_STATUS.CHECKING;
         	}
         	this.smList[friend].smpInit(this.secret, friend, init, input);
+        };
 
+
+
+        $_.ee.addListener($_.MSG.CHAINS_INIT, this.checkStatus([$_.STATUS.MPOTR], () => {
+ 
+            if (this.chains === undefined){
+                this.chains = new Chains($_, this); 
+                this.chains.init();
+            }    
+        
+        }));
+
+        $_.ee.addListener($_.EVENTS.CHAINS_SUCCESS, this.checkStatus([$_.STATUS.MPOTR], (data) => {
+ 
+            if (this.circleChains === undefined){
+
+                this.circleChains = new CircleChains($_, this);
+                this.circleChains.init(data.circle, data.aim);
+
+                var new_data = [data.aim, this.room.id, data.chains];
+
+                E.ee.emitEvent(E.EVENTS.CHAINS_PROOF_INIT, [new_data]);
+            }   
+             
+        }));
+
+        $_.ee.addListener($_.MSG.CC_RESULT, this.checkStatus([$_.STATUS.MPOTR], (data) => {
+            if (!this.checkSig(data, data["data"]["from"])) {
+                alert("Signature check fail");
+                return;
+            }
+            this.circleChains.handleMessage(data['data']['from'], data['data']['results']);
+        }));
+
+        $_.ee.addListener($_.MSG.CHAINS_PROOF, this.checkStatus([$_.STATUS.MPOTR], (data) => {
+            if(!chat.mailBuf.length){
+                chat.mailBuf.push(data);
+                E.ee.emitEvent(E.EVENTS.CHAINS_PROOF_START);
+            } else {
+                chat.mailBuf.push(data);
+            }
+        }));  
+
+        $_.ee.addListener($_.EVENTS.CHAINS_PROOF, this.checkStatus([$_.STATUS.MPOTR], (data) => {
+            
+            if (!this.checkSig(data, data["from"])) {
+                alert("Signature check fail");
+                return;
+            }
+            delete data['sig'];
+
+            check_proof(data, this.room);
+
+
+        }));
+
+
+        async function check_proof(data, curRoom){
+
+            var from = data["from"];
+            var user_id = data["data"]["id"];
+            var user_pubKey_fingerprint = data["data"]["pubKey_fingerprint"];
+            var aim = data["data"]["aim"];
+            var auth_room = data["data"]["auth_room"];
+            var chain = data["data"]["chain"];
+
+            var rooms = Object.keys(chat.rooms);
+            var idx = chain.indexOf(curRoom.id);
+
+            if(idx !== chain.length - 1){
+                if(!rooms.includes(chain[idx + 1])){
+                    return;
+                }
+            } else {
+                if(chat.id !== aim){
+                    return;
+                }
+            }
+
+            var data_copy = JSON.parse(JSON.stringify(data));
+            var result = true;
+
+
+            for(var i = idx; i >= 0; i--){
+
+                var groupInfo = await chord.get(`groupPubKey${chain[i]}`);
+
+                if(settings.checkGroupSignature(groupInfo, data)){
+                    delete data["data"][chain[i]];
+                } else {
+                    result = false; 
+                    break;
+                }
+
+            }
+
+            if(idx === 0){
+
+                if(chat.validUsers.has(user_id)){
+                    if(!user_pubKey_fingerprint === cryptico.publicKeyID(chat.validUsers.get(user_id))){
+                        result = false;
+                    }
+                } else {
+                    result = false;
+                }
+
+                if(result){
+                    if(idx !== chain.length - 1){
+                        if(rooms.includes(chain[idx + 1])){
+
+                            var new_data = {
+                                "data": data_copy,
+                                "room": chain[idx + 1]
+                            };
+                                
+                            E.ee.emitEvent(E.EVENTS.CHAINS_SEND_MSG, [new_data]);
+                        }
+                    } else {
+                        //в одной комнате
+                        //доделать
+                    }
+                }
+
+            } else if(idx !== chain.length - 1){
+
+                if(result){
+
+                    var prevGroupInfo = await chord.get(`groupPubKey${chain[idx - 1]}`);
+                    
+                    var prevUsers = prevGroupInfo.idList.filter(el => curRoom.users.includes(el));
+
+                    if(prevUsers.includes(from)){
+
+                        var key = sha256.hex(JSON.stringify(chain) + user_id + aim);
+
+                        if(!Object.keys(chat.dataToCheck).includes(key)){
+                            chat.dataToCheck[key] = {};
+                        }
+                        chat.dataToCheck[key][from] = user_pubKey_fingerprint;
+
+                        var users = Object.keys(chat.dataToCheck[key]);
+
+                        if(users.length === prevUsers.length){
+
+                            var fingerprint  = chat.dataToCheck[key][users[0]];
+                            var flag = true;
+
+                            for(var user of users){
+                                if(chat.dataToCheck[key][user] !== fingerprint){
+                                    flag = false;
+                                    break;
+                                }
+                            }
+
+                            delete chat.dataToCheck[key];
+
+                            if(flag){
+    
+                                var new_data = {
+                                    "data": data_copy,
+                                    "room": chain[idx + 1]
+                                };
+                                E.ee.emitEvent(E.EVENTS.CHAINS_SEND_MSG, [new_data]);
+                            }
+
+                        }     
+                    }
+    
+                }
+
+            } else {
+                if(result){
+
+
+                    var prevGroupInfo = await chord.get(`groupPubKey${chain[idx - 1]}`);
+                    
+                    var prevUsers = prevGroupInfo.idList.filter(el => curRoom.users.includes(el));
+
+                    if(prevUsers.includes(from)){
+
+                        var key = sha256.hex(JSON.stringify(chain) + user_id + aim);
+
+                        if(!Object.keys(chat.dataToCheck).includes(key)){
+                            chat.dataToCheck[key] = {};
+                        }
+                        chat.dataToCheck[key][from] = user_pubKey_fingerprint;
+
+                        var users = Object.keys(chat.dataToCheck[key]);
+
+                        if(users.length === prevUsers.length){
+
+                            var fingerprint  = chat.dataToCheck[key][users[0]];
+                            var flag = true;
+
+                            for(var user of users){
+                                if(chat.dataToCheck[key][user] !== fingerprint){
+                                    flag = false;
+                                    break;
+                                }
+                            }
+
+                            delete chat.dataToCheck[key];
+
+                            if(flag){
+                                
+                                E.ee.emitEvent(E.EVENTS.CHAINS_PROOF_RECEIVED, [data]);
+
+                            }
+
+                        }     
+                    }
+                    
+                }
+            }
+
+            E.ee.emitEvent(E.EVENTS.CHAINS_PROOF_FINISH);
         }
 
-        
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-        
-
-
+      
         $_.ee.addListener($_.EVENTS.DGS_INIT, this.checkStatus([$_.STATUS.MPOTR], () => { 
             if (!chat.dgsList.has(this.room.id)){
                 chat.dgsList.set(this.room.id, new DGS($_, this, settings));
@@ -1074,60 +1262,40 @@ exports.main = function($_, time) {
                 E.ee.emitEvent(E.EVENTS.QUIT_ROOM, [this.room.id]);
             } else {
                 GUI.showNotification(`Аутентификация в беседе "${this.room.name}" прошла успешно`, 3000);
+                
+                var msg = {
+                    "type": $_.MSG.READY_FOR_DGS,
+                    "data": 'MSG.READY_FOR_DGS',
+                    "from": chat.id,
+                    "room": this.room.id
+                };
+
+                this.signMessage(msg); 
+                this.chord.publish(this.room.id, $_.MSG.BROADCAST, msg);
+
+                this.ready_for_dgs.push(chat.id);
+
+                if(this.ready_for_dgs.length === this.room.users.length + 1){
+                    console.log("DGS: start");
+                    $_.ee.emitEvent($_.EVENTS.DGS_INIT);
+                }
+                
+            } 
+        }));
+
+        $_.ee.addListener($_.MSG.READY_FOR_DGS, this.checkStatus([$_.STATUS.MPOTR], (data) => {
+            if (!this.checkSig(data, data["from"])) {
+                alert("Signature check fail");
+                return;
+            }
+
+            this.ready_for_dgs.push(data["from"]);
+
+            if(this.ready_for_dgs.length === this.room.users.length + 1){
                 console.log("DGS: start");
                 $_.ee.emitEvent($_.EVENTS.DGS_INIT);
             }
-
-
-
-            
         }));
-
-        
-        // $_.ee.addListener($_.MSG.NEW_GROUP, (data) => { 
-        //     console.log("heard smth", data);
-    
-        //     chord.get(`groupPubKey${data["newGroup"]}`).then((pubKeyInfo) => {
-
-        //         let sig = settings.deserialize_group_sig(pubKeyInfo["group_sig"]);
-
-        //         let keys = Object.keys(pubKeyInfo);
-        //         keys.sort();
-        //         let result = "";
-        //         for (let key of keys) {
-        //             if(key !== "group_sig"){
-        //                 result += pubKeyInfo[key];
-        //             }
-        //         }
-
-        //         let groupPubKey = [];
-        //         groupPubKey[0] = new BigInteger(pubKeyInfo["blindedSecret"], 16);
-        //         groupPubKey[1] = new Map();
-        //         for (let i = 0; i < pubKeyInfo["idList"].length; i++){
-        //             groupPubKey[1].set(pubKeyInfo["idList"][i], new BigInteger(pubKeyInfo["bsList"][i], 16));
-        //         }
-
-        //         let res = settings.verify(groupPubKey, result, sig["g_wave"], sig["y_wave"], sig["C"], sig["Su"], sig["Sv"]);
-
-        //         if (res){
-        //             chat.groupsInfo.set(data["newGroup"], groupPubKey);
-        
-        //             let roomList = data["roomList"];
-        //             roomList.push(this.room.id);
-        
-        //             E.ee.emitEvent(E.EVENTS.NEW_GROUP, [roomList]);
-        //         }
-
-        //     });
-            
-        // });
-
-
-
-        
-
-
-
 
 
 
@@ -1152,7 +1320,7 @@ exports.main = function($_, time) {
         this.InitAuthenticationPhase = function () {
             let currentRound = 1;
 
-            time.start(`authentification phase`);
+            //time.start(`authentification phase`);
 
             /**
              * Queue for storing auth messages for future processing
@@ -1171,7 +1339,7 @@ exports.main = function($_, time) {
                 // Check Message
                 let processMessage = (peer, data) => {
                     let result = this.rounds[currentRound].recv(peer, data);
-                    time.end(`auth round ${currentRound}`);
+                    //time.end(`auth round ${currentRound}`);
 
                     if (result) {
                         // TODO: check for double submit
@@ -1186,7 +1354,7 @@ exports.main = function($_, time) {
                             if (!this.rounds[currentRound].send()) {
                                 return false;
                             }
-                            time.start(`auth round ${currentRound}`);
+                           // time.start(`auth round ${currentRound}`);
 
                             // Process the whole queue
                             for (let msg of roundsQueue[currentRound]) {
@@ -1211,7 +1379,7 @@ exports.main = function($_, time) {
 
                     if (currentRound === 4) {
                         success();
-                        time.end(`authentification phase`);
+                       // time.end(`authentification phase`);
                     }
                 } else if (payload[2] === currentRound + 1 && payload[2] < 5) {
                     roundsQueue[payload[2]].push([payload[3], payload.slice(4)]);
@@ -1307,7 +1475,7 @@ exports.main = function($_, time) {
             $_.ee.addListener($_.MSG.MPOTR_AUTH, authMessageListener);
 
             this.rounds[currentRound].send();
-            time.start(`auth round ${currentRound}`);
+            //time.start(`auth round ${currentRound}`);
 
             return authenticationPhase;
         };

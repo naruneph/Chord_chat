@@ -124,6 +124,55 @@ class Settings {
         return comp;
     }
 
+    check_groupPubKey(pubKeyInfo){
+
+        let sig = this.deserialize_group_sig(pubKeyInfo["group_sig"]);
+
+        let keys = Object.keys(pubKeyInfo);
+        keys.sort();
+        let result = "";
+        for (let key of keys) {
+            if(key !== "group_sig"){
+                result += pubKeyInfo[key];
+            }
+        }
+
+        let groupPubKey = [];
+        groupPubKey[0] = new BigInteger(pubKeyInfo["blindedSecret"], 16);
+        groupPubKey[1] = new Map();
+        for (let i = 0; i < pubKeyInfo["idList"].length; i++){
+            groupPubKey[1].set(pubKeyInfo["idList"][i], new BigInteger(pubKeyInfo["bsList"][i], 16));
+        }
+
+        return this.verify(groupPubKey, result, sig["g_wave"], sig["y_wave"], sig["C"], sig["Su"], sig["Sv"]);
+    }
+
+    checkGroupSignature(pubKeyInfo, msg){
+
+        let groupPubKey = [];
+        groupPubKey[0] = new BigInteger(pubKeyInfo["blindedSecret"], 16);
+        groupPubKey[1] = new Map();
+        for (let i = 0; i < pubKeyInfo["idList"].length; i++){
+            groupPubKey[1].set(pubKeyInfo["idList"][i], new BigInteger(pubKeyInfo["bsList"][i], 16));
+        }
+
+        let roomId = pubKeyInfo["roomId"];
+
+        let sig = this.deserialize_group_sig(msg["data"][roomId]);
+
+        let keys = Object.keys(msg["data"]);
+        keys.sort();
+        let result = "";
+        for (let key of keys) {
+            if(key !== roomId){
+                result += msg["data"][key];
+            }
+        }
+
+        return this.verify(groupPubKey, result, sig["g_wave"], sig["y_wave"], sig["C"], sig["Su"], sig["Sv"]);
+    }
+
+
 };
 module.exports = Settings;
 

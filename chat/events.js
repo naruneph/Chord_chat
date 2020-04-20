@@ -29,14 +29,25 @@ module.exports = function() {
             CSMP: 'EVENTS.CSMP',
 
             AUTH_FINISH: 'EVENTS.AUTH_FINISH',
-            
+            QUIT_ROOM: 'EVENTS.QUIT_ROOM',
+
             CCEGK_FINISH: 'EVENTS.CCEGK_FINISH',
             DGS_INIT: 'EVENTS.DGS_INIT',
             DGS_PUBKEY_CHECK: 'EVENTS.DGS_PUBKEY_CHECK',
 
-            QUIT_ROOM: 'EVENTS.QUIT_ROOM'
+            CHAINS_BLACK_LIST: 'EVENTS.CHAINS_BLACK_LIST',
+            CHAINS_SEARCH: 'EVENTS.CHAINS_SEARCH',
+            CHAINS_SUCCESS: 'EVENTS.CHAINS_SUCCESS',
 
-            
+            CHAINS_PROOF_INIT: 'EVENTS.CHAINS_PROOF_INIT',
+            CHAINS_SEND_MSG: 'EVENTS.CHAINS_SEND_MSG',
+            CHAINS_PROOF: 'EVENTS.CHAINS_PROOF',
+            CHAINS_PROOF_START: 'EVENTS.CHAINS_PROOF_START',
+            CHAINS_PROOF_FINISH: 'EVENTS.CHAINS_PROOF_FINISH',
+            CHAINS_PROOF_RECEIVED: 'EVENTS.CHAINS_PROOF_RECEIVED',
+            CHAINS_CHECK_PROOFS: 'EVENTS.CHAINS_CHECK_PROOFS'
+
+
         },
 
         /**
@@ -62,10 +73,17 @@ module.exports = function() {
             SMP_STEP3: 'MSG.SMP_STEP3',
             SMP_STEP4: 'MSG.SMP_STEP4',
 
-
-            DGS_PUBKEY_CHECK: 'MSG.DGS_PUBKEY_CHECK',
             CCEGK: 'MSG.CCEGK',
-            CCEGK_REMOVING: 'MSG.CCEGK_REMOVING'
+            CCEGK_REMOVING: 'MSG.CCEGK_REMOVING',
+            DGS_PUBKEY_CHECK: 'MSG.DGS_PUBKEY_CHECK',
+            READY_FOR_DGS: 'MSG.READY_FOR_DGS',
+
+            CHAINS_INIT: 'MSG.CHAINS_INIT',
+            CHAINS_BLACK_LIST: 'MSG.CHAINS_BLACK_LIST',
+            CHAINS_SEARCH: 'MSG.CHAINS_SEARCH',
+            CHAINS_PROOF: 'MSG.CHAINS_PROOF',
+
+            CC_RESULT: 'MSG.CC_RESULT'
         },
 
         /**
@@ -92,6 +110,20 @@ module.exports = function() {
             IN_PROCESS: 'CSMP_RESULTS.IN_PROCESS',
             UNKNOWN: 'CSMP_RESULTS.UNKNOWN',
             BAD_NOT_SURE: 'CSMP_RESULTS.BAD_NOT_SURE'
+        },
+
+        CC_STATUS: {
+            FREE: 'CC_STATUS.FREE',
+            CHECKING: 'CC_STATUS.CHECKING',
+            DONE: 'CC_STATUS.DONE'
+        },
+
+        CC_RESULTS: {
+            GOOD: 'CC_RESULTS.GOOD',
+            BAD: 'CC_RESULTS.BAD',
+            IN_PROCESS: 'CC_RESULTS.IN_PROCESS',
+            UNKNOWN: 'CC_RESULTS.UNKNOWN',
+            BAD_NOT_SURE: 'CC_RESULTS.BAD_NOT_SURE'
         },
 
         ee: new EventEmitter()

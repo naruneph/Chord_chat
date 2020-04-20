@@ -27,7 +27,7 @@ function getElems(container, chat, getName = function(id){return id}) {
 
 	r.authBlock = document.getElementById("authBlock");
 	r.authBySMP = r.authBlock.getElementsByTagName("input")[0];
-	r.authByCommunities = r.authBlock.getElementsByTagName("input")[1];
+	r.authByGroups = r.authBlock.getElementsByTagName("input")[1];
 	r.authCancel = r.authBlock.getElementsByTagName("input")[2];
 
 	r.mngBlock = r.mesBlock.getElementsByClassName("chatMngBlock")[0];
@@ -43,6 +43,7 @@ function getElems(container, chat, getName = function(id){return id}) {
 
 	r.promptCancel.addEventListener("click", e => r.showChat());
 	r.authCancel.addEventListener("click", e => {r.authBlock.style.display = "none";});
+
 
 	r.showDialog = function() {
 		r.mesBlock.style.left = "50%";

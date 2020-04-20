@@ -15,6 +15,10 @@ class Chat {
 
 		this.dgsList = new Map(); // {rid: dgs-object} 
 
+		this.mailBuf = [];
+		this.dataToCheck = {};
+
+
 		this.getGlobalName = function(id) {
 			return id;
 		};

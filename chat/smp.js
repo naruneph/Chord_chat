@@ -121,7 +121,6 @@ function SMP($_, context, settings) {
                 this.context.csmp.checked_by_me.push(this.friendID);
                 this.context.csmp.amount_unknown -= 1;
 
-                if(this.context.csmp.amount_unknown <= 0) {$_.ee.emitEvent($_.EVENTS.AUTH_FINISH);}
 
                 this.reset();
                 if (this.context.csmp.ready_to_send_res() === 1){
@@ -131,7 +130,6 @@ function SMP($_, context, settings) {
                     this.context.csmp.handleMessage(this.friendID, this.context.csmp.mail[this.friendID]);
                 }
 
-                
                 break;
             case 5:
                 this.sm_prog_state = sm_step5(this, input);
@@ -149,7 +147,6 @@ function SMP($_, context, settings) {
                     this.context.csmp.groups[this.friendID] = this.myID;
                     this.context.csmp.amount_unknown -= 1;
 
-                    if(this.context.csmp.amount_unknown <= 0) {$_.ee.emitEvent($_.EVENTS.AUTH_FINISH);}
                     
                     this.context.csmp.checked_by_me.push(this.friendID);
 
@@ -159,6 +156,7 @@ function SMP($_, context, settings) {
                     if (this.context.csmp.mail[this.friendID] !== undefined){
                         this.context.csmp.handleMessage(this.friendID, this.context.csmp.mail[this.friendID]);
                     }
+
 
                 } else {
     
@@ -170,8 +168,6 @@ function SMP($_, context, settings) {
                     this.context.csmp.groups[this.friendID] = this.friendID;
                     this.context.csmp.amount_unknown -= 1;
 
-                    if(this.context.csmp.amount_unknown <= 0) {$_.ee.emitEvent($_.EVENTS.AUTH_FINISH);}
-
                     this.context.csmp.checked_by_me.push(this.friendID);
                     if (this.context.csmp.ready_to_send_res() === 1){
                         this.context.csmp.sendResults();
@@ -179,6 +175,8 @@ function SMP($_, context, settings) {
                     if (this.context.csmp.mail[this.friendID] !== undefined){
                         this.context.csmp.handleMessage(this.friendID, this.context.csmp.mail[this.friendID]);
                     }
+
+
                     if (this.context.csmp.status === $_.CSMP_STATUS.FREE){
                         if (this.context.csmp.choose_aim()){                      
                               

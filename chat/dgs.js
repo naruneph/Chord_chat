@@ -242,6 +242,19 @@ function DGS ($_, context, settings) {
     };
 
 
+    this.createSignature = function(msg){
+
+        let keys = Object.keys(msg.data);
+        keys.sort();
+        let result = "";
+        for (let key of keys) {
+            result += msg.data[key];
+        }
+
+        msg.data[this.context.room.id] = serialize_group_sig(this.sign(result));  
+    };
+
+    
 
 
 
@@ -273,7 +286,8 @@ function DGS ($_, context, settings) {
         res2 = settings.verify(groupPubKey, result, sig["g_wave"], sig["y_wave"], sig["C"], sig["Su"], sig["Sv"]);
 
         if(!(res1 && res2)){
-            //опубликовавший - нарушитель - нужно его удалить из группы
+            console.log("published key is wrong")
+            //доделать
         } else {
             console.log("published key is valid")
         }
