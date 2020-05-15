@@ -8,7 +8,10 @@ function ChainOfGroups ($_, context){
     this.init = function (friendID, groups){
 
         this.friendID = friendID;
+
         this.chains = this.findChains(groups);
+        
+
     };
 
     

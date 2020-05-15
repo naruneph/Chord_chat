@@ -110,17 +110,60 @@ function Chains ($_, context){
                 }
             }
 
-            // if(!group){
-            //     return false;
-            // } else {
-           
-            // }
                 
+            if(!group){
+                return false;
+            } else {
+                
+                if(Object.keys(chat.rooms).includes(group.roomId)){
+                    if(!chat.dgsList.has(group.roomId)){
+                        return false;
+                    } else {
+                
+                        var blindedSecret = new BigInteger(group.blindedSecret, 16);
+                        var idList = group.idList;
+                        var bsList = [];
+                        for (let i1 = 0; i1 < group.bsList.length; i1++){
+                            bsList.push(new BigInteger(group.bsList[i1], 16));
+                        }
 
+                        var myInfo = chat.dgsList.get(group.roomId).groupPubKey;
 
+                        if (blindedSecret.compareTo(myInfo[0]) !== 0){
+                            return false;
+                        }
 
+                        var myidList = Array.from(myInfo[1].keys());
 
-            
+                        if(myidList.length !== idList.length){
+                            return false;
+                        } else {
+                            for(let i2 = 0; i2 < idList.length; i2++){
+                                if (myidList[i2] !== idList[i2]){
+                                    return false;
+                                }
+                            }
+                        }
+
+                        var mybsList = Array.from(myInfo[1].values());
+
+                        if(mybsList.length !== bsList.length){
+                            return false;
+                        } else {
+                            for(let i3 = 0; i3 < bsList.length; i3++){
+                                if (mybsList[i3].compareTo(bsList[i3]) !== 0){
+                                    return false;
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    if(group.idList.includes(chat.id)){
+                        return false;
+                    }
+                }
+            }
+
 
             if(i === 0){
 
@@ -470,6 +513,13 @@ function Chains ($_, context){
                 this.context.circleChains.handleMessage(user_id, this.context.circleChains.mail[user_id]);
             }
 
+        }
+
+        if(this.context.circleChains.amount_unknown <= 0) {
+            if(this.context.circleChains.auth_flag){
+                this.context.circleChains.auth_flag = false;
+                $_.ee.emitEvent($_.EVENTS.AUTH_FINISH);
+            } 
         }
 
     }));

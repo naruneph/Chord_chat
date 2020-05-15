@@ -1141,7 +1141,10 @@ exports.main = function($_, time) {
                         }
                     } else {
                         //в одной комнате
-                        //доделать
+                        console.log("AAAaaa")
+                        E.ee.emitEvent(E.EVENTS.CHAINS_PROOF_RECEIVED, [data]);
+
+                        
                     }
                 }
 
@@ -1185,6 +1188,7 @@ exports.main = function($_, time) {
                                     "room": chain[idx + 1]
                                 };
                                 E.ee.emitEvent(E.EVENTS.CHAINS_SEND_MSG, [new_data]);
+                                E.ee.emitEvent(E.EVENTS.CHAINS_PROOF_FINISH);
                             }
 
                         }     

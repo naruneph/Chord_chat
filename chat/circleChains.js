@@ -29,6 +29,7 @@ function CircleChains($_, context) {
 
         this.result[aim]= $_.CC_RESULTS.IN_PROCESS;
         this.status = $_.CC_STATUS.CHECKING;
+
       
     };
 
