@@ -14,6 +14,8 @@ function CircleChains($_, context) {
         this.checked_by_me = [];
         this.list_to_check = new Map();
 
+        this.auth_flag = true;
+
         this.stime = 0;
         this.ftime = 0;
 
@@ -50,7 +52,11 @@ function CircleChains($_, context) {
             this.sum += this.ftime - this.stime;
             this.stime = 0;
 
-            $_.ee.emitEvent($_.EVENTS.AUTH_FINISH);
+            if(this.auth_flag){
+                this.auth_flag = false;
+                $_.ee.emitEvent($_.EVENTS.AUTH_FINISH);
+            }
+            
 
             return 0;
         }
@@ -139,6 +145,11 @@ function CircleChains($_, context) {
                             this.result[peer] = $_.CC_RESULTS.GOOD;
                             this.groups[peer] = this.context.chord.id;
                             
+                            if(!chat.validUsers.has(peer)){
+                                chat.validUsers.set(peer, this.context.longtermPubKeys[peer].toString(16));
+                            }
+
+
                             this.amount_unknown -= 1;
 
                             if (this.mail[peer] !== undefined) {
@@ -163,6 +174,10 @@ function CircleChains($_, context) {
                             this.result[peer] = $_.CC_RESULTS.BAD;
                             this.groups[peer] = results['bad'];
                             
+                            if(chat.validUsers.has(peer) && (chat.validUsers.get(peer) === this.context.longtermPubKeys[peer].toString(16))){
+                                chat.validUsers.delete(peer);
+                            }
+
                             this.amount_unknown -= 1;
 
                             if (this.mail[peer] !== undefined) {
@@ -189,6 +204,10 @@ function CircleChains($_, context) {
                             this.list_to_check[from].delete(peer);
                             this.result[from] = $_.CC_RESULTS.BAD;
                             this.groups[from] = this.groups[peer];
+
+                            if(chat.validUsers.has(from) && (chat.validUsers.get(from) === this.context.longtermPubKeys[from].toString(16))){
+                                chat.validUsers.delete(from);
+                            }
 
                             this.amount_unknown -= 1; 
                     
@@ -226,8 +245,12 @@ function CircleChains($_, context) {
         }
         this.mail[from] = undefined;
 
-        if(this.amount_unknown <= 0) {$_.ee.emitEvent($_.EVENTS.AUTH_FINISH);}
-
+        if(this.amount_unknown <= 0) {
+            if(this.auth_flag){
+                this.auth_flag = false;
+                $_.ee.emitEvent($_.EVENTS.AUTH_FINISH);
+            } 
+        }
     };
 }
 

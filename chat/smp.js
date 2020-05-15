@@ -188,7 +188,7 @@ function SMP($_, context, settings) {
                 this.reset();
                 break;
         }
-        GUI.updateUsers();
+        
         
 
 

@@ -8,11 +8,11 @@ function ChainOfGroups ($_, context){
     this.init = function (friendID, groups){
 
         this.friendID = friendID;
-        this.chains = this.findAllChains(groups);
+        this.chains = this.findChains(groups);
     };
 
     
-    this.findAllChains = function(groups){
+    this.findChains = function(groups){
         var grList1 = groupList(this.myID, groups);
         var grList2 = groupList(this.friendID, groups);
 
@@ -22,7 +22,7 @@ function ChainOfGroups ($_, context){
         if(grList1.length && grList2.length){
             var intersectionList = intersection(grList1, grList2);
             if(intersectionList.length){
-                output.push([intersectionList[0]]);
+                intersectionList.forEach(el => output.push([el]) );
             } else {
                 var i = 0;
                 while(i < grList1.length){
@@ -48,8 +48,13 @@ function ChainOfGroups ($_, context){
 
 
         if(intersectionList.length){
-            local_resList.push(intersectionList[0]);
-            output.push(local_resList);
+
+            intersectionList.forEach(el => {
+                var tmp = [].concat(local_resList);
+                tmp.push(el);
+                output.push(tmp);
+            });
+
         } else {
             var i = 0;
             while(i < new_grList1.length){

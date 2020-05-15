@@ -1251,6 +1251,8 @@ exports.main = function($_, time) {
         $_.ee.addListener($_.EVENTS.AUTH_FINISH, this.checkStatus([$_.STATUS.MPOTR], () =>{
             console.warn("AUTH FINISHED");
 
+            GUI.updateUsers();
+
             var flag = true;
             for(var i = 0; i < this.room.users.length; i++){
                 if(!chat.validUsers.has(this.room.users[i])){

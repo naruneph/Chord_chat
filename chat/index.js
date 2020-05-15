@@ -98,7 +98,7 @@ function initialize(id) {
 function changeMPOTR() {
 	let c = CONTEXTS[chat.getRoom().id];
 
-	//console.log(c, arguments);
+	console.log(c, arguments);
 	
 	switch(c.status) {	
 		case E.STATUS.AUTH:
@@ -536,7 +536,7 @@ ChordModule.prototype.getWRTCString(function(str) {
 
 
 E.ee.addListener(E.EVENTS.QUIT_ROOM, (rid) => {
-	quitRoom(rid);
+	//quitRoom(rid);
 });
 
 E.ee.addListener(E.EVENTS.CHAINS_PROOF_INIT, (data) =>{

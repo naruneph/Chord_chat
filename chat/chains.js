@@ -4,8 +4,7 @@ function Chains ($_, context){
     this.myID = chat.id;
     this.subgroups = []; 
     this.unreachableUsers = [];  
-    this.myBlackList = []; 
-    this.othersBlackList = [];
+
     this.mail = new Map();
     this.groupsInfo = undefined;
     this.chains = new Map(); // uid1 : [{uid2, chains}, ...]
@@ -28,27 +27,38 @@ function Chains ($_, context){
         
         this.context.chord.get_groupPubKeys().then( groupsInfo => {
 
-
-            groupsInfo.forEach(item => {
-                if(item.idList.includes(this.myID) && !chat.dgsList.has(item.roomId)){
-                    this.myBlackList.push(item.roomId);
-                } 
-            });
-
-            groupsInfo.filter(el => !this.myBlackList.includes(el.roomId));
-        
             this.groupsInfo = groupsInfo;
 
+            this.search();
+
+            var chainsInfo = []; 
+
+            this.chains.get(this.myID).forEach(el => {  
+            
+                var targetID = el.id;
+                var chains = [];
+
+                el.chains.forEach(chain => {
+                    let tmp = [];
+                    for(let group of chain){
+                        tmp.push(group.roomId);
+                    }
+                    chains.push(tmp);
+                });
+
+                chainsInfo.push({"id": targetID, "chains": chains});
+            });
+
             var msg = {
-                "type": $_.MSG.CHAINS_BLACK_LIST,
+                "type": $_.MSG.CHAINS_SEARCH,
                 "from": this.myID,
-                "blackList": this.myBlackList,
+                "chainsInfo": chainsInfo, //  [] / [ {"id": uid, "chains": [[rids], ...]}, ... ]   
                 "room": this.context.room.id
             };
-    
+
             this.context.signMessage(msg); 
-            this.context.chord.publish(this.context.room.id, $_.MSG.BROADCAST, msg);
-            
+            this.context.chord.publish(this.context.room.id, $_.MSG.BROADCAST, msg); 
+        
         });
 
 
@@ -93,16 +103,24 @@ function Chains ($_, context){
 
         for(var i = 0; i < chain.length; i++){
 
-            if(this.myBlackList.includes(chain[i]) || this.othersBlackList.includes(chain[i])){
-                return false;
-            }
-
             for(gr of this.groupsInfo){
                 if(gr.roomId === chain[i]){
                     group = gr;
                     break;
                 }
             }
+
+            // if(!group){
+            //     return false;
+            // } else {
+           
+            // }
+                
+
+
+
+
+            
 
             if(i === 0){
 
@@ -140,60 +158,6 @@ function Chains ($_, context){
         return true;
     }
 
-    $_.ee.addListener($_.MSG.CHAINS_BLACK_LIST, this.context.checkStatus([$_.STATUS.MPOTR], (data) => {
-        if (!this.context.checkSig(data, data["from"])) {
-            alert("Signature check fail");
-            return;
-        }
-        delete data['sig'];
-
-        this.mail.set(data["from"], data["blackList"]);
-
-        if(this.mail.size === this.context.room.users.length){
-            $_.ee.emitEvent($_.EVENTS.CHAINS_BLACK_LIST);
-        }
-    }));
-
-    $_.ee.addListener($_.EVENTS.CHAINS_BLACK_LIST, this.context.checkStatus([$_.STATUS.MPOTR], () => {
-
-        Array.from(this.mail.values()).forEach( el => this.othersBlackList = [...this.othersBlackList.concat(el)]);
-        this.mail.clear();
-
-
-        this.groupsInfo = this.groupsInfo.filter(item => !this.othersBlackList.includes(item.roomId));
-
-
-        this.search();
-
-        var chainsInfo = []; 
-
-        this.chains.get(this.myID).forEach(el => {  
-           
-            var targetID = el.id;
-            var chains = [];
-
-            el.chains.forEach(chain => {
-                let tmp = [];
-                for(let group of chain){
-                    tmp.push(group.roomId);
-                }
-                chains.push(tmp);
-            });
-
-            chainsInfo.push({"id": targetID, "chains": chains});
-        });
-
-        var msg = {
-            "type": $_.MSG.CHAINS_SEARCH,
-            "from": this.myID,
-            "chainsInfo": chainsInfo, //  [] / [ {"id": uid, "chains": [[rids], ...]}, ... ]   
-            "room": this.context.room.id
-        };
-
-        this.context.signMessage(msg); 
-        this.context.chord.publish(this.context.room.id, $_.MSG.BROADCAST, msg); 
-
-    }));
 
     $_.ee.addListener($_.MSG.CHAINS_SEARCH, this.context.checkStatus([$_.STATUS.MPOTR], (data) => {
         if (!this.context.checkSig(data, data["from"])) {
@@ -486,7 +450,7 @@ function Chains ($_, context){
                 if(!chat.validUsers.has(user_id)){
                     chat.validUsers.set(user_id, this.context.longtermPubKeys[user_id].toString(16));
                 }
-                this.context.circleChains.result[user_id] = $_.CSMP_RESULTS.GOOD;
+                this.context.circleChains.result[user_id] = $_.CC_RESULTS.GOOD;
                 this.context.circleChains.groups[user_id] = this.myID;
             } else {
                 if(chat.validUsers.has(user_id) && (chat.validUsers.get(user_id) === this.context.longtermPubKeys[user_id].toString(16))){
@@ -507,7 +471,7 @@ function Chains ($_, context){
             }
 
         }
-        GUI.updateUsers();
+
     }));
 
 

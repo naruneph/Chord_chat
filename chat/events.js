@@ -35,7 +35,7 @@ module.exports = function() {
             DGS_INIT: 'EVENTS.DGS_INIT',
             DGS_PUBKEY_CHECK: 'EVENTS.DGS_PUBKEY_CHECK',
 
-            CHAINS_BLACK_LIST: 'EVENTS.CHAINS_BLACK_LIST',
+
             CHAINS_SEARCH: 'EVENTS.CHAINS_SEARCH',
             CHAINS_SUCCESS: 'EVENTS.CHAINS_SUCCESS',
 
@@ -79,7 +79,6 @@ module.exports = function() {
             READY_FOR_DGS: 'MSG.READY_FOR_DGS',
 
             CHAINS_INIT: 'MSG.CHAINS_INIT',
-            CHAINS_BLACK_LIST: 'MSG.CHAINS_BLACK_LIST',
             CHAINS_SEARCH: 'MSG.CHAINS_SEARCH',
             CHAINS_PROOF: 'MSG.CHAINS_PROOF',
 
