@@ -244,7 +244,8 @@ function CircleChains($_, context) {
             default:
                 console.log("Strange CC_results")
         }
-        this.mail[from] = undefined;
+        if(this.result[from] !== $_.CC_RESULTS.UNKNOWN && this.result[from] !== $_.CC_RESULTS.IN_PROCESS)
+            this.mail[from] = undefined;
 
         if(this.amount_unknown <= 0) {
             if(this.auth_flag){

@@ -287,9 +287,10 @@ function DGS ($_, context, settings) {
 
         if(!(res1 && res2)){
             console.log("published key is wrong")
-            //доделать
+            
         } else {
             console.log("published key is valid")
+            chat.rooms[rid].groupPubKey = pubKeyInfo;
         }
     };
 

@@ -51,21 +51,19 @@ chat.getGlobalName = function(id) {
 };
 
 
-function putMyData() {
-	chord.put(`id${chord.id}`, chat.name);
-	chord.put(`mail${chat.mail}`, chord.id);
+async function putMyData() {
+	await chord.put(`id${chord.id}`, chat.name);
+	await chord.put(`mail${chat.mail}`, chord.id);
 }
 
-function final() {
+async function final() {
 	GUI.showChat();
 	putMyData();
 
-	setTimeout(function() {
-		for(var rid in chat.rooms)
-			chord.subscribe(rid);
+	for(var rid in chat.rooms)
+		await chord.subscribe(rid);
+	putMyData();
 
-		putMyData();
-	}, 5000);
 }
 
 
@@ -152,7 +150,7 @@ function onMessage(message) {
 		GUI.buildDialog(chat.getRoom());
 }
 
-function newRoom(rid, name, status) {
+async function newRoom(rid, name, status) {
 	if(!chat.getRoom(rid)) {
 		if(status == E.STATUS.MPOTR)
 			chord.publish(rid, E.MSG.BROADCAST, {type: "stopChat", room: rid});
@@ -171,7 +169,7 @@ function newRoom(rid, name, status) {
 		$_.ee.addListener($_.EVENTS.MPOTR_SHUTDOWN_START, changeMPOTR);
 		$_.ee.addListener($_.EVENTS.MPOTR_SHUTDOWN_FINISH, changeMPOTR);
 
-		chord.subscribe(rid);
+		await chord.subscribe(rid);
 		chord.publish(rid, "-whatIsYourID-", {uid: chord.id, rid: rid});
 
 		GUI.showNotification(`Беседа "${name}" создана`, 3000);
@@ -223,6 +221,26 @@ function newPeer(id) {
 	});
 }
 
+// async function newPeer(id) {
+
+// 	var name = await chord.get(`id${id}`);
+
+// 	console.log("AAA", typeof(name));
+
+// 	name = name || id;
+
+// 	let rid =  BigInt.randBetween(0, 1e40).toString(16);
+
+// 	newRoom(rid, name);
+
+// 	chord.send(id, "-newRoom-", {rid: rid, name: chat.name});
+// 	GUI.buildRooms(chat.rooms);
+// 	GUI.showChat();
+
+// 	GUI.showNotification(`Пользователь с id ${id} подключен`, 2000);
+	
+// }
+
 
 
 //////////////////////////////////////////////////////////////
@@ -237,14 +255,28 @@ window.addEventListener("beforeunload", function beforeUnload(event) {
 
 GUI.quitRoom.addEventListener("click", () => quitRoom(chat.currentRoom));
 
-GUI.findIdButton.addEventListener("click", () => {
-	GUI.promptSubmit.onclick = () => {
-		let mail = GUI.promptText.value;
+// GUI.findIdButton.addEventListener("click", () => {
+// 	GUI.promptSubmit.onclick = () => {
+// 		let mail = GUI.promptText.value;
 
-		chord.get(`mail${mail}`).then((id) => {
-			GUI.showNotification(`У человека с почтой ${mail} id равен \n${id}`, 7000);
-			GUI.showChat();
-		});
+// 		chord.get(`mail${mail}`).then((id) => {
+// 			GUI.showNotification(`У человека с почтой ${mail} id равен \n${id}`, 7000);
+// 			GUI.showChat();
+// 		});
+// 	};
+
+// 	GUI.showPrompt("Введите почту пользователя");
+// });
+
+GUI.findIdButton.addEventListener("click", () => {
+	GUI.promptSubmit.onclick = async () => {
+		var mail = GUI.promptText.value;
+
+		var id = await chord.get(`mail${mail}`);
+
+		GUI.showNotification(`У человека с почтой ${mail} id равен \n${id}`, 7000);
+		GUI.showChat();
+		
 	};
 
 	GUI.showPrompt("Введите почту пользователя");
@@ -623,8 +655,7 @@ E.ee.addListener(E.EVENTS.CHAINS_PROOF_RECEIVED, (data) =>{
 	if(Object.keys(chat.rooms).includes(auth_room)){
 
 		var c = CONTEXTS[auth_room];
-		var $_ = EMITTERS[auth_room];
-		 
+		var $_ = EMITTERS[auth_room];            
 		if(c.chains.myTargets[user_id]){//my target
 			if(c.chains.myTargets[user_id][chain] === null){
 

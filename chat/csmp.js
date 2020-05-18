@@ -268,7 +268,8 @@ function CSMP($_, context) {
             default:
                 console.log("Strange csmp_results")
         }
-        this.mail[from] = undefined;
+        if(this.result[from] !== $_.CSMP_RESULTS.UNKNOWN && this.result[from] !== $_.CSMP_RESULTS.IN_PROCESS)
+            this.mail[from] = undefined;
         if(this.amount_unknown <= 0) {
             if(this.auth_flag){
                 this.auth_flag = false;

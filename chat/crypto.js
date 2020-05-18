@@ -1035,8 +1035,10 @@ exports.main = function($_, time) {
         }));
 
         $_.ee.addListener($_.EVENTS.CHAINS_SUCCESS, this.checkStatus([$_.STATUS.MPOTR], (data) => {
+
+            time.start("chains_auth");
  
-            if (this.circleChains === undefined){
+            if (this.circleChains === undefined){ 
 
                 this.circleChains = new CircleChains($_, this);
                 this.circleChains.init(data.circle, data.aim);
@@ -1057,12 +1059,29 @@ exports.main = function($_, time) {
         }));
 
         $_.ee.addListener($_.MSG.CHAINS_PROOF, this.checkStatus([$_.STATUS.MPOTR], (data) => {
+
+            var rooms = Object.keys(chat.rooms);
+            var idx = data["data"]["chain"].indexOf(this.room.id);
+
+            if(idx !== data["data"]["chain"].length - 1){
+                if(!rooms.includes(data["data"]["chain"][idx + 1])){
+                    return;
+                }
+            } else {
+                if(chat.id !== data["data"]["aim"]){
+                    return;
+                }
+            }
+
+
             if(!chat.mailBuf.length){
                 chat.mailBuf.push(data);
                 E.ee.emitEvent(E.EVENTS.CHAINS_PROOF_START);
             } else {
                 chat.mailBuf.push(data);
             }
+
+
         }));  
 
         $_.ee.addListener($_.EVENTS.CHAINS_PROOF, this.checkStatus([$_.STATUS.MPOTR], (data) => {
@@ -1078,6 +1097,10 @@ exports.main = function($_, time) {
 
         }));
 
+        function sleep(ms) {
+          return new Promise(resolve => setTimeout(resolve, ms));
+        }
+
 
         async function check_proof(data, curRoom){
 
@@ -1091,32 +1114,35 @@ exports.main = function($_, time) {
             var rooms = Object.keys(chat.rooms);
             var idx = chain.indexOf(curRoom.id);
 
-            if(idx !== chain.length - 1){
-                if(!rooms.includes(chain[idx + 1])){
-                    return;
-                }
-            } else {
-                if(chat.id !== aim){
-                    return;
-                }
-            }
+            // if(idx !== chain.length - 1){
+            //     if(!rooms.includes(chain[idx + 1])){
+            //         return;
+            //     }
+            // } else {
+            //     if(chat.id !== aim){
+            //         return;
+            //     }
+            // }
 
             var data_copy = JSON.parse(JSON.stringify(data));
             var result = true;
 
 
-            for(var i = idx; i >= 0; i--){
+            // for(var i = idx; i >= 0; i--){
 
-                var groupInfo = await chord.get(`groupPubKey${chain[i]}`);
+            //     var groupInfo = await chord.get(`groupPubKey${chain[i]}`);
 
-                if(settings.checkGroupSignature(groupInfo, data)){
-                    delete data["data"][chain[i]];
-                } else {
-                    result = false; 
-                    break;
-                }
+            //     await sleep(500);
 
-            }
+
+            //     if(settings.checkGroupSignature(groupInfo, data)){
+            //         delete data["data"][chain[i]];
+            //     } else {
+            //         result = false; 
+            //         break;
+            //     }
+
+            // }
 
             if(idx === 0){
 
@@ -1128,7 +1154,22 @@ exports.main = function($_, time) {
                     result = false;
                 }
 
+
+
+                // var groupInfo = await chord.get(`groupPubKey${chain[0]}`);
+
+                // await sleep(500);
+
+                var groupInfo = chat.rooms[chain[0]].groupPubKey;
+
+                if(settings.checkGroupSignature(groupInfo, data)){
+                    delete data["data"][chain[0]];
+                } else {
+                    result = false; 
+                }
+
                 if(result){
+
                     if(idx !== chain.length - 1){
                         if(rooms.includes(chain[idx + 1])){
 
@@ -1140,8 +1181,7 @@ exports.main = function($_, time) {
                             E.ee.emitEvent(E.EVENTS.CHAINS_SEND_MSG, [new_data]);
                         }
                     } else {
-                        //в одной комнате
-                        console.log("AAAaaa")
+
                         E.ee.emitEvent(E.EVENTS.CHAINS_PROOF_RECEIVED, [data]);
 
                         
@@ -1182,13 +1222,31 @@ exports.main = function($_, time) {
                             delete chat.dataToCheck[key];
 
                             if(flag){
+
+                                for(var i = idx; i >= 0; i--){
+
+                                    var groupInfo = await chord.get(`groupPubKey${chain[i]}`);
+
+                                    await sleep(500);
+
+
+                                    if(settings.checkGroupSignature(groupInfo, data)){
+                                        delete data["data"][chain[i]];
+                                    } else {
+                                        result = false; 
+                                        break;
+                                    }
+
+                                }
+
+                                if(result){
+                                    var new_data = {
+                                        "data": data_copy,
+                                        "room": chain[idx + 1]
+                                    };
+                                    E.ee.emitEvent(E.EVENTS.CHAINS_SEND_MSG, [new_data]);
+                                }
     
-                                var new_data = {
-                                    "data": data_copy,
-                                    "room": chain[idx + 1]
-                                };
-                                E.ee.emitEvent(E.EVENTS.CHAINS_SEND_MSG, [new_data]);
-                                E.ee.emitEvent(E.EVENTS.CHAINS_PROOF_FINISH);
                             }
 
                         }     
@@ -1198,7 +1256,6 @@ exports.main = function($_, time) {
 
             } else {
                 if(result){
-
 
                     var prevGroupInfo = await chord.get(`groupPubKey${chain[idx - 1]}`);
                     
@@ -1230,8 +1287,25 @@ exports.main = function($_, time) {
                             delete chat.dataToCheck[key];
 
                             if(flag){
-                                
-                                E.ee.emitEvent(E.EVENTS.CHAINS_PROOF_RECEIVED, [data]);
+
+                                for(var i = idx; i >= 0; i--){
+
+                                    var groupInfo = await chord.get(`groupPubKey${chain[i]}`);
+
+                                    await sleep(500);
+
+
+                                    if(settings.checkGroupSignature(groupInfo, data)){
+                                        delete data["data"][chain[i]];
+                                    } else {
+                                        result = false; 
+                                        break;
+                                    }
+
+                                }
+
+                                if(result)                                
+                                    E.ee.emitEvent(E.EVENTS.CHAINS_PROOF_RECEIVED, [data]);
 
                             }
 
@@ -1253,7 +1327,9 @@ exports.main = function($_, time) {
         }));
 
         $_.ee.addListener($_.EVENTS.AUTH_FINISH, this.checkStatus([$_.STATUS.MPOTR], () =>{
+
             console.warn("AUTH FINISHED");
+            time.end("chains_auth");
 
             GUI.updateUsers();
 
