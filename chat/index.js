@@ -96,7 +96,7 @@ function initialize(id) {
 function changeMPOTR() {
 	let c = CONTEXTS[chat.getRoom().id];
 
-	console.log(c, arguments);
+	//console.log(c, arguments);
 	
 	switch(c.status) {	
 		case E.STATUS.AUTH:
@@ -221,25 +221,7 @@ function newPeer(id) {
 	});
 }
 
-// async function newPeer(id) {
 
-// 	var name = await chord.get(`id${id}`);
-
-// 	console.log("AAA", typeof(name));
-
-// 	name = name || id;
-
-// 	let rid =  BigInt.randBetween(0, 1e40).toString(16);
-
-// 	newRoom(rid, name);
-
-// 	chord.send(id, "-newRoom-", {rid: rid, name: chat.name});
-// 	GUI.buildRooms(chat.rooms);
-// 	GUI.showChat();
-
-// 	GUI.showNotification(`Пользователь с id ${id} подключен`, 2000);
-	
-// }
 
 
 
@@ -255,18 +237,6 @@ window.addEventListener("beforeunload", function beforeUnload(event) {
 
 GUI.quitRoom.addEventListener("click", () => quitRoom(chat.currentRoom));
 
-// GUI.findIdButton.addEventListener("click", () => {
-// 	GUI.promptSubmit.onclick = () => {
-// 		let mail = GUI.promptText.value;
-
-// 		chord.get(`mail${mail}`).then((id) => {
-// 			GUI.showNotification(`У человека с почтой ${mail} id равен \n${id}`, 7000);
-// 			GUI.showChat();
-// 		});
-// 	};
-
-// 	GUI.showPrompt("Введите почту пользователя");
-// });
 
 GUI.findIdButton.addEventListener("click", () => {
 	GUI.promptSubmit.onclick = async () => {

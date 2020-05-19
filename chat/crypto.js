@@ -1114,35 +1114,10 @@ exports.main = function($_, time) {
             var rooms = Object.keys(chat.rooms);
             var idx = chain.indexOf(curRoom.id);
 
-            // if(idx !== chain.length - 1){
-            //     if(!rooms.includes(chain[idx + 1])){
-            //         return;
-            //     }
-            // } else {
-            //     if(chat.id !== aim){
-            //         return;
-            //     }
-            // }
 
             var data_copy = JSON.parse(JSON.stringify(data));
             var result = true;
 
-
-            // for(var i = idx; i >= 0; i--){
-
-            //     var groupInfo = await chord.get(`groupPubKey${chain[i]}`);
-
-            //     await sleep(500);
-
-
-            //     if(settings.checkGroupSignature(groupInfo, data)){
-            //         delete data["data"][chain[i]];
-            //     } else {
-            //         result = false; 
-            //         break;
-            //     }
-
-            // }
 
             if(idx === 0){
 
@@ -1153,12 +1128,6 @@ exports.main = function($_, time) {
                 } else {
                     result = false;
                 }
-
-
-
-                // var groupInfo = await chord.get(`groupPubKey${chain[0]}`);
-
-                // await sleep(500);
 
                 var groupInfo = chat.rooms[chain[0]].groupPubKey;
 
@@ -1227,8 +1196,6 @@ exports.main = function($_, time) {
 
                                     var groupInfo = await chord.get(`groupPubKey${chain[i]}`);
 
-                                    await sleep(500);
-
 
                                     if(settings.checkGroupSignature(groupInfo, data)){
                                         delete data["data"][chain[i]];
@@ -1291,9 +1258,6 @@ exports.main = function($_, time) {
                                 for(var i = idx; i >= 0; i--){
 
                                     var groupInfo = await chord.get(`groupPubKey${chain[i]}`);
-
-                                    await sleep(500);
-
 
                                     if(settings.checkGroupSignature(groupInfo, data)){
                                         delete data["data"][chain[i]];
